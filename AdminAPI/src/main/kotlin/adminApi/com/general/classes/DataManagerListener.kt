@@ -1,0 +1,44 @@
+package adminApi.com.general.classes
+
+import adminApi.com.datareader.data.ProviderManager
+import adminApi.com.general.DataManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlin.coroutines.CoroutineContext
+
+class DataManagerListener(val dataManager : DataManager) : CoroutineScope {
+
+    override val coroutineContext: CoroutineContext = Job()
+    override fun toString(): String =
+        "CoroutineScope(coroutineContext=$coroutineContext)"
+
+    fun onStart() {
+        launch(Dispatchers.Default) {
+            ProviderManager.producersSubject.collect { message ->
+                if (message != null) {
+                    when (message.dataType) {
+                        "producers" -> {
+                            dataManager.producerContainer.processDataFromDataProvider(message.supplierId, message.items)
+                        }
+                    }
+                }
+            }
+        }
+        launch(Dispatchers.Default){
+            ProviderManager.categoriesSubject.collect{ message ->
+                if (message != null) {
+                    dataManager.categoryContainer.processDataFromDataProvider(message.supplierId, message.items)
+                }
+            }
+        }
+        launch(Dispatchers.Default){
+            ProviderManager.productsSubject.collect{ message ->
+                if (message != null) {
+                    dataManager.productContainer.processDataFromDataProvider(message.supplierId, message.items)
+                }
+            }
+        }
+    }
+}
