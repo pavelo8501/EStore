@@ -17,7 +17,7 @@ class CategoryContainer(mappings: HashMap<String,String>, override var supplierI
     }
 
     fun addCategory(dataItem : CategoryData){
-        addData(Json.encodeToJsonElement(CategoryData.serializer(),dataItem))
+        addData(dataItem)
     }
 
 }

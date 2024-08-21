@@ -1,7 +1,9 @@
 package adminApi.com.general.models.data
 
+import kotlinx.serialization.Serializable
 
-interface ICommonData{
+@Serializable
+sealed interface ICommonData{
     var id :Int
     var supplierId : Int
     var providerId : String

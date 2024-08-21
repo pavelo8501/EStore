@@ -19,7 +19,7 @@ class ProductContainer(mappings: HashMap<String,String>, override var supplierId
     }
 
     fun addProduct(dataItem : ProductData){
-        addData(Json.encodeToJsonElement(ProductData.serializer(),dataItem))
+        addData(dataItem)
     }
 
 }
