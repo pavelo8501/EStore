@@ -20,7 +20,9 @@ class SupplierEntity(supplier_id: EntityID<Int>) : IntEntity(supplier_id) {
     var connectorSettings by Suppliers.connectorSettings
 
     fun toModel():SupplierData{
+
         return SupplierData(id.value,name,connectorSettings)
+
     }
 }
 

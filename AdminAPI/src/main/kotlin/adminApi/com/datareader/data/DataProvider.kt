@@ -32,23 +32,6 @@ class  DataProvider(val supplierId : Int, val name :String) {
 
     init {
         producers.onDataUpdated = { list -> ProviderManager.sendProducers(supplierId, list.map { it.toData() } ) }
-
-    }
-
-    fun dataReceived(dataType:String, data:Any){
-        when(dataType){
-            "categories" -> {
-                val records = data as CategoryData
-            }
-            "producers" -> {
-                val record = data as ProducerData
-              //  producers.submitData<ProducerDataModel>(record)
-            }
-        }
-    }
-
-    private fun notifyDataUpdated(containerName : String ,container : DataContainer<*> ){
-      //  onUpdated?.invoke(ProviderUpdateParams(providerId,containerName,container))
     }
 
     fun <T:Connector>setConnector(connector:T){
@@ -61,9 +44,7 @@ class  DataProvider(val supplierId : Int, val name :String) {
             val result =  dataService?.executeMethod("getCategories")
             if(result!=null){
                 categories.setData(result.data)
-                val a = 10
             }
-            ProviderManager.sendCategories(supplierId, categories.getData().map { it.toData() } )
         }
     }
 
@@ -82,7 +63,6 @@ class  DataProvider(val supplierId : Int, val name :String) {
             if(result!=null){
                 products.setData(result.data)
             }
-            ProviderManager.sendProducts(supplierId, products.getData().map { it.toData() } )
         }
     }
 }

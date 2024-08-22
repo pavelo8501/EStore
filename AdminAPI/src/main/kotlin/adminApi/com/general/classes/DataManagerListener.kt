@@ -16,7 +16,7 @@ class DataManagerListener(val dataManager : DataManager) : CoroutineScope {
 
     fun onStart() {
         launch(Dispatchers.Default) {
-            ProviderManager.producersSubject.collect { message ->
+            ProviderManager.producerSubject.collect { message ->
                 if (message != null) {
                     when (message.dataType) {
                         "producers" -> {
@@ -27,14 +27,14 @@ class DataManagerListener(val dataManager : DataManager) : CoroutineScope {
             }
         }
         launch(Dispatchers.Default){
-            ProviderManager.categoriesSubject.collect{ message ->
+            ProviderManager.categorySubject.collect{ message ->
                 if (message != null) {
                     dataManager.categoryContainer.processDataFromDataProvider(message.supplierId, message.items)
                 }
             }
         }
         launch(Dispatchers.Default){
-            ProviderManager.productsSubject.collect{ message ->
+            ProviderManager.productSubject.collect{ message ->
                 if (message != null) {
                     dataManager.productContainer.processDataFromDataProvider(message.supplierId, message.items)
                 }

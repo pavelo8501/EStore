@@ -1,23 +1,31 @@
 package adminApi.com.general.models.data
 
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
+import adminApi.com.datareader.classes.AuthParam
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.*
 
 
 data class SupplierData (
     var supplierId: Int,
     var name: String = "",
     var connectorSettings: String = ""
-){
 
-    val settings : HashMap<String,String> = hashMapOf()
+    ){
 
+    var settings : HashMap<String,String> = hashMapOf()
     init {
-        val obj = Json.parseToJsonElement(connectorSettings)
-        obj.jsonObject.forEach {
-            settings[it.key] = it.value.jsonPrimitive.content
+
+        val jasonArray = Json.decodeFromString<JsonArray>(connectorSettings)
+        jasonArray.forEach(){
+            val obj = it.jsonObject
+            val key =  obj.keys.firstOrNull()
+            if(key != null){
+                settings[key] = obj[key].toString()
+            }
         }
+
+        val a = 10
+
     }
 
 }

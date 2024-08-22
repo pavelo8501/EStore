@@ -25,7 +25,8 @@ fun startDataReader(){
 
 }
 
-fun test() {
+fun start() {
+
    val db = DBManager("localhost/estore","root","")
 
    val dataManager = DataManager(db)
@@ -33,24 +34,18 @@ fun test() {
    dataManager.loadSuppliers { suppliers ->
       providerManager.initProvidersFromSupplierList(suppliers)
    }
+   dataManager.onDataLoaded = {
+       providerManager.getProducers("action")
+       providerManager.getCategories("action")
+       providerManager.getProducts("action")
+   }
    dataManager.init()
-   providerManager.getProducers("action")
+
+  //  providerManager.getProducers("action")
    //providerManager.getCategories("action")
    //providerManager.getProducts("action")
-
-   runBlocking {
-       delay(8000)
-       providerManager.getProducers("action")
-     //  providerManager.getCategories("action")
-     //  providerManager.getProducts("action")
-   }
-
 }
 
-fun testDB(){
-
-
-}
 
 fun Application.module() {
     configureHTTP()
@@ -59,5 +54,5 @@ fun Application.module() {
     configureSecurity()
     configureRouting()
    // configureSuppliers()
-    test()
+    start()
 }

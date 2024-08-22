@@ -6,6 +6,12 @@ import adminApi.com.general.models.ElementClass
 import adminApi.com.general.models.data.ICommonData
 import adminApi.com.general.models.data.ProducerData
 
+class DataContainerUpdate<D>(
+    var supplierId : Int,
+    var records : List<D>
+    )
+
+
 abstract class BaseContainer<T:ElementClass, D:ICommonData>(val dbService : DatabaseService ) {
 
     abstract val containerName :String
@@ -16,7 +22,9 @@ abstract class BaseContainer<T:ElementClass, D:ICommonData>(val dbService : Data
     private var recordsUpdated = false
     private val dataRecordBuffer: MutableList<D> = mutableListOf()
 
-    var onSendDataToReader : ((List<D>, containerName: String)->Unit)? = null
+    var onSendDataToReader : ((DataContainerUpdate<D>)->Unit)? = null
+
+    //var onSendDataToReader : ((List<D>, containerName: String)->Unit)? = null
 
     protected fun updateEntity(entity : DBEntity, data : ICommonData){
         dbService.dbQuery {
@@ -107,7 +115,8 @@ abstract class BaseContainer<T:ElementClass, D:ICommonData>(val dbService : Data
             }
             this.recordsUpdated = true
             if(this.dataRecordBuffer.isNotEmpty()){
-                onSendDataToReader?.invoke(this.dataRecordBuffer.toList(),containerName)
+                val recordsBySupplier = this.dataRecordBuffer.groupBy { it.supplierId }
+                recordsBySupplier.forEach { (supplierId, records) ->  onSendDataToReader?.invoke(DataContainerUpdate(supplierId,records)) }
                 this.dataRecordBuffer.clear()
             }
 

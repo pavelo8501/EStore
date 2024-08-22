@@ -16,11 +16,35 @@ class ProviderDataListener( val providerManager : ProviderManager) : CoroutineSc
 
     fun onStart() {
         launch(Dispatchers.Default) {
-            DataManager.producersSubject.collect { message ->
+            DataManager.producerSubject.collect { message ->
                 if(message!=null){
                     val provider =  providerManager.getProvider(message.supplierId)
                     if (provider!=null){
-                        message.items.forEach{ provider.producers.addProducer(it)}
+                        provider.producers.addProducers(message.items)
+                    }else{
+                        throw Exception("Provider with given id ${message.supplierId} not found")
+                    }
+                }
+            }
+        }
+        launch(Dispatchers.Default) {
+            DataManager.categorySubject.collect { message ->
+                if(message!=null){
+                    val provider =  providerManager.getProvider(message.supplierId)
+                    if (provider!=null){
+                        provider.categories.addCategories(message.items)
+                    }else{
+                        throw Exception("Provider with given id ${message.supplierId} not found")
+                    }
+                }
+            }
+        }
+        launch(Dispatchers.Default) {
+            DataManager.productSubject.collect { message ->
+                if(message!=null){
+                    val provider =  providerManager.getProvider(message.supplierId)
+                    if (provider!=null){
+                        provider.products.addProducts(message.items)
                     }else{
                         throw Exception("Provider with given id ${message.supplierId} not found")
                     }

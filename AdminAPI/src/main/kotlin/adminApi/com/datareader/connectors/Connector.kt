@@ -4,25 +4,25 @@ import adminApi.com.datareader.classes.AuthParam
 import adminApi.com.datareader.classes.ConnectorSettings
 import adminApi.com.datareader.classes.IMethod
 import adminApi.com.datareader.classes.Method
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import java.awt.geom.Line2D
 
 abstract class Connector {
 
     var initialized : Boolean = false
     val authParams : MutableMap<String,AuthParam> = mutableMapOf()
 
-    open var name : String = ""
-
-    open var _apiKey : String? = null
-
-    open var url : String? = null
+    abstract var name : String
+    abstract var url : String
 
     val methods : MutableMap<String, Method> = mutableMapOf()
 
     fun getApiKey() : String {
-        if(_apiKey == null){
-            throw Exception("Api key not set")
+        if(authParams.containsKey("apiKey")){
+            return authParams["apiKey"]!!.value
         }else{
-            return _apiKey!!
+            return ""
         }
     }
 
@@ -37,21 +37,19 @@ abstract class Connector {
         authParams[name] = AuthParam(name, value)
     }
 
-    fun setSettings(settings: ConnectorSettings) {
-        if(_apiKey == null){
-            _apiKey = settings.apiKey
-        }
-        if(url == null){
-            url = settings.endpointAddress
-        }
-        initialized = true
-    }
 
     fun getMethod(name:String) : Method {
         if(methods.containsKey(name)){
             return methods[name]!!
         }
         throw Exception("Method $name not found in connector")
+    }
+
+    fun setAuthentication( settings: HashMap<String,String>){
+        settings.forEach { authParam ->
+            this.setAuthParam(authParam.key, authParam.value)
+        }
+        initialized = true
     }
 
 }

@@ -32,18 +32,11 @@ class ActionConnector() : Connector() {
     )
 
     override var name = "action"
-
-    val _userName = "user"
-    val _customerId = "777"
+    override var url = "https://api.action.pl/api/ade/v2/"
 
     val columnMappings : HashMap<String,String> = hashMapOf()
 
     init {
-        super.setAuthParam("userName", _userName)
-        super.setAuthParam("customerId", _customerId)
-        super.setAuthParam("apiKey","fake_key")
-        _apiKey = "fake_key"
-        url = "https://api.action.pl/api/ade/v2/"
 
         columnMappings["categoryId"] = "categoryId"
         columnMappings["name"] = "name"

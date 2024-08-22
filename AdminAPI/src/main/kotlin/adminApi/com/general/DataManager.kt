@@ -4,6 +4,7 @@ import adminApi.com.database.DBManager
 import adminApi.com.database.services.SupplierEntity
 import adminApi.com.general.classes.DataManagerListener
 import adminApi.com.general.containers.CategoryContainer
+import adminApi.com.general.containers.DataContainerUpdate
 import adminApi.com.general.containers.ProducersContainer
 import adminApi.com.general.containers.ProductContainer
 import adminApi.com.general.models.data.CategoryData
@@ -21,23 +22,26 @@ data class DataManagerMessage<T>(
 
 class DataManager(val db : DBManager) {
     companion object DataManagerConnector{
-        fun sendProducers(id : Int, items :List<ProducerData>){
-            producersSubject.value =  DataManagerMessage(id,"producers", items)
+        fun sendProducerUpdate(id : Int, items :List<ProducerData>){
+            producerSubject.value =  DataManagerMessage(id,"producers", items)
         }
-//        fun sendCategories(id : Int, items :List<CategoryData>){
-//            categoriesSubject.value =  DataManagerMessage(id,"categories", items)
-//        }
-//        fun sendProducts(id : Int, items :List<ProductData>) {
-//            productsSubject.value = DataManagerMessage(id,"products", items)
-//        }
-        val producersSubject = MutableStateFlow<DataManagerMessage<ProducerData>?>(null)
-//        val categoriesSubject = MutableStateFlow<DataManagerMessage<CategoryData>?>(null)
-//        val productsSubject = MutableStateFlow<DataManagerMessage<ProductData>?>(null)
+        fun sendCategoryUpdate(id : Int, items :List<CategoryData>){
+            categorySubject.value =  DataManagerMessage(id,"categories", items)
+        }
+        fun sendProductUpdate(id : Int, items :List<ProductData>){
+            productSubject.value =  DataManagerMessage(id,"categories", items)
+        }
+        val producerSubject = MutableStateFlow<DataManagerMessage<ProducerData>?>(null)
+        val categorySubject = MutableStateFlow<DataManagerMessage<CategoryData>?>(null)
+        val productSubject = MutableStateFlow<DataManagerMessage<ProductData>?>(null)
     }
 
     private val listener = DataManagerListener(this)
 
     private val supplierList = mutableListOf<SupplierData>()
+
+    var onDataLoaded : ( () -> Unit) ? = null
+
     fun getSuppliers():List<SupplierData>{
         return supplierList.toList()
     }
@@ -45,18 +49,14 @@ class DataManager(val db : DBManager) {
         val result =  db.suppliersService().select<SupplierEntity>()
         for (entity in result) {
             try {
-                this.supplierList.add(entity.toModel())
+                val  supplier = entity.toModel()
+                this.supplierList.add(supplier)
             }catch (e:Exception){
                 println(e.message)
             }
         }
         callback?.invoke(getSuppliers())
     }
-
-//    var onDataManagerReady : ((DataManager)->Unit)? = null
-//    private fun notifyReady(){
-//        onDataManagerReady?.invoke(this)
-//    }
 
     init {
         this.listener.onStart()
@@ -67,12 +67,17 @@ class DataManager(val db : DBManager) {
     val productContainer = ProductContainer(db)
 
     fun init() {
-        producerContainer.onSendDataToReader = {
-                data, containerName ->  sendProducers(1,data)
-        }
+        producerContainer.onSendDataToReader = { update ->  sendProducerUpdate(update.supplierId,update.records) }
         producerContainer.init()
+
+        categoryContainer.onSendDataToReader = { update ->  sendCategoryUpdate(update.supplierId,update.records) }
         categoryContainer.init()
+
+        productContainer.onSendDataToReader = { update ->  sendProductUpdate(update.supplierId, update.records)  }
         productContainer.init()
+
+        onDataLoaded?.invoke()
+
     }
 
 }

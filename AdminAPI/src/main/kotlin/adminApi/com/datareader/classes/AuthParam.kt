@@ -1,6 +1,9 @@
 package adminApi.com.datareader.classes
 
-class AuthParam (
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class AuthParam (
     val name:String,
     val value:String
 )

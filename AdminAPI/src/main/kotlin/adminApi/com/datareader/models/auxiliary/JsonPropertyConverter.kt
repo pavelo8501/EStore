@@ -3,16 +3,19 @@ package adminApi.com.datareader.models.auxiliary
 import kotlinx.serialization.json.*
 import kotlin.reflect.typeOf
 
-class JsonPropertyConverter(var jsonElement: JsonElement ) {
+class JsonPropertyConverter(var jsonElement: JsonElement? ) {
 
         var propertyMap : HashMap<String,String>? = null
-        var jsonData : JsonObject
+        var jsonData : JsonObject? = null
 
         init {
-            jsonData = this.jsonElement.jsonObject
+            if(jsonElement != null){
+                jsonData = jsonElement!!.jsonObject
+            }
         }
 
         private fun getValue(name:String,parseToString : Boolean = false):String{
+            jsonData ?: "0"
             try {
                 var key = name
                 if(propertyMap != null){
@@ -33,7 +36,8 @@ class JsonPropertyConverter(var jsonElement: JsonElement ) {
                 return ""
             }
         }
-         fun intProp(name:String):Int{
+
+        fun intProp(name:String):Int{
             val value = getValue(name)
             if(value.isEmpty()){
                 return 0

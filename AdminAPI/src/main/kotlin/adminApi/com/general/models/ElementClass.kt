@@ -49,7 +49,10 @@ open class ElementClass() {
 
     fun initFromData(data: ICommonData){
         if(this.dbEntity != null){
-            if(this.dbEntity!!.toData() == data){
+
+            val entityData = this.dbEntity!!.toData()
+
+            if(entityData == data){
                val a = 10
             }else{
                this.onUpdateEntity?.invoke(this.dbEntity!!, data)

@@ -11,14 +11,14 @@ import kotlinx.serialization.json.encodeToJsonElement
 class ProducerContainer(mappings: HashMap<String,String>, override var supplierId :Int ) : DataContainer<ProducerDataModel>() {
 
    override fun createDataItem(source:JsonElement, mapping: HashMap<String,String>? ) : ProducerDataModel {
-        return ProducerDataModel(JsonPropertyConverter(source)).also {
+        return ProducerDataModel(source).also {
             it.supplierId = supplierId
-            it.converter.setProviderData(source,mapping)
         }
     }
 
-    fun addProducer(dataItem : ProducerData){
-        addData(dataItem)
+    fun addProducers(dataItems : List<ProducerData>){
+        val producers = dataItems.map { data ->  ProducerDataModel().also{ it.fromData(data) }}
+        setData(producers,true)
     }
 
 }

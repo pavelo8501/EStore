@@ -18,64 +18,82 @@ abstract class DataContainer<T:DataModelClass>(){
 
    fun onDataUpdated(function: () -> Unit): Any = Unit
 
-   abstract fun createDataItem(source:JsonElement, mapping: HashMap<String,String>? = null) : T
+    abstract fun createDataItem(source:JsonElement, mapping: HashMap<String,String>? = null) : T
 
-   private fun checkIfDataChanged(record: T):Boolean{
-       val index = this.records.indexOfFirst {it.providerId == record.providerId }
-       if(index < 0){
-           this.toSaveBuffer.add(record)
-           return false
-       }else{
-           if(record.toData() !=  this.records[index].toData()){
-               this.toSaveBuffer.add(record)
-               this.records[index] = record
+    private fun sendForUpdate(){
+        if(onDataUpdated!=null){
+            if(this.toSaveBuffer.isNotEmpty()){
+                onDataUpdated?.invoke(this.toSaveBuffer)
+                this.toSaveBuffer.clear()
+            }
+        }
+    }
 
-               return true
-           }else{
-               this.records[index].fromDataManager = false
-               val a =10
-               return true
-           }
-       }
+    private fun getExistentIfDataChanged(record: T):T?{
+        val index = this.records.indexOfFirst {it.providerId == record.providerId }
+        val newRecordData = record.toData()
+        newRecordData.id = 0
+        val foundRecordData = this.records[index].toData()
+        foundRecordData.id = 0
+        return if(newRecordData == foundRecordData) {
+            null
+        }else{
+            this.records[index]
+        }
+    }
+
+    private fun replaceRecord(oldRecord: T, newRecord: T){
+        val index = this.records.indexOfFirst {it.providerId == oldRecord.providerId }
+        if(index >= 0){
+            this.records[index] = newRecord
+        }
+    }
+
+    private fun addRecord(record: T){
+        val index = this.records.indexOfFirst {it.providerId == record.providerId }
+        if(index < 0){
+            this.records.add(record)
+            if(!record.fromDataManager){
+                this.toSaveBuffer.add(record)
+            }
+        }else {
+            val existent = getExistentIfDataChanged(record)
+            if (existent != null) {
+                if (existent.fromDataManager) {
+                    record.id = existent.id
+                    this.toSaveBuffer.add(record)
+                    this.replaceRecord(existent, record)
+                } else {
+                    this.toSaveBuffer.add(existent)
+                }
+            }
+        }
    }
-   private fun addRecord(record: T){
-       if(!checkIfDataChanged(record)){
-           this.records.add(record)
-       }
-   }
 
-   fun setData(data:List<JsonElement>){
+    fun setData(data:List<JsonElement>){
         this.jsonItems.clear()
         this.jsonItems.addAll(data)
         for(record in jsonItems){
             val dataItem = this.createDataItem(record,mapping)
             this.addRecord(dataItem)
         }
-       if(this.toSaveBuffer.isNotEmpty()){
-           onDataUpdated?.invoke(this.toSaveBuffer)
-           this.toSaveBuffer.clear()
-       }
-   }
-   fun addData(data : ICommonData ){
-       try {
-           val jsonData = Json.encodeToJsonElement(data)
-           val newDataItem = this.createDataItem(jsonData, mapping)
-           newDataItem.id = data.id
-           newDataItem.supplierId = data.supplierId
-           newDataItem.fromDataManager = true
-           this.addRecord(newDataItem)
-       }catch (ex  :Exception){
-           throw Exception("Item creation failed "+ ex.message)
-       }
+       sendForUpdate()
    }
 
-   fun getData(): List<T>{
+    fun setData(data : List<T>, fromDataManager : Boolean = true ){
+        try {
+            data.forEach { item->
+                item.fromDataManager = fromDataManager
+                this.addRecord(item)
+            }
+        }catch (ex  :Exception){
+            throw Exception("Item creation failed "+ ex.message)
+        }
+        sendForUpdate()
+    }
+
+    fun getData(): List<T>{
         return this.records
    }
-
-//   fun <F> findRecord(id:Int): DataModelClass?{
-//        return this.records.find { it.supplierId == id } as DataModelClass?
-//    }
-
 
 }

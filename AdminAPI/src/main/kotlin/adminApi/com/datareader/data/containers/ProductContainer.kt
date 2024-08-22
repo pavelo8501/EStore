@@ -12,14 +12,14 @@ import kotlinx.serialization.json.JsonElement
 class ProductContainer(mappings: HashMap<String,String>, override var supplierId :Int ) : DataContainer<ProductDataModel>() {
 
    override fun createDataItem(source:JsonElement, mapping: HashMap<String,String>? ) : ProductDataModel {
-        return ProductDataModel(JsonPropertyConverter(source)).also {
+        return ProductDataModel(source).also {
             it.supplierId = supplierId
-            it.converter.setProviderData(source,mapping)
         }
     }
 
-    fun addProduct(dataItem : ProductData){
-        addData(dataItem)
+    fun addProducts(dataItems : List<ProductData>){
+        val products  =   dataItems.map { data ->  ProductDataModel().also { it.fromData(data) } }
+        setData(products,true)
     }
 
 }

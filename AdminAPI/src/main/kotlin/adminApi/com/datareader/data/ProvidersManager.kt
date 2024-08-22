@@ -49,24 +49,20 @@ class ProviderManager() {
     companion object ProviderManagerConnector{
 
         fun sendProducers(id : Int, items :List<ProducerData>){
-            producersSubject.value =  DataManagerMessage(id,"producers", items)
+            producerSubject.value =  DataManagerMessage(id,"producers", items)
         }
         fun sendCategories(id : Int, items :List<CategoryData>){
-            categoriesSubject.value =  DataManagerMessage(id,"categories", items)
+            categorySubject.value =  DataManagerMessage(id,"categories", items)
         }
         fun sendProducts(id : Int, items :List<ProductData>) {
-            productsSubject.value = DataManagerMessage(id,"products", items)
+            productSubject.value = DataManagerMessage(id,"products", items)
         }
-        val producersSubject = MutableStateFlow<DataManagerMessage<ProducerData>?>(null)
-        val categoriesSubject = MutableStateFlow<DataManagerMessage<CategoryData>?>(null)
-        val productsSubject = MutableStateFlow<DataManagerMessage<ProductData>?>(null)
+        val producerSubject = MutableStateFlow<DataManagerMessage<ProducerData>?>(null)
+        val categorySubject = MutableStateFlow<DataManagerMessage<CategoryData>?>(null)
+        val productSubject = MutableStateFlow<DataManagerMessage<ProductData>?>(null)
     }
 
     private val dataProviders : MutableMap<String,DataProvider> = mutableMapOf()
-//    private val producersSubject = CompletableFuture<ProviderUpdateArgs>()
-//    fun subscribeToProducersChange():CompletableFuture<ProviderUpdateArgs>{
-//        return producersSubject
-//    }
 
     private val dataListener = ProviderDataListener(this)
 
@@ -83,22 +79,22 @@ class ProviderManager() {
 
     private fun <T:Connector>makeConnector(name:String, clazz:KClass<T>):T{
         val connector = clazz.createInstance()
-        if(connector != null) {
           //  connector.setSettings(settings)
-            return connector
-        }
-        throw Exception("Connector $name not found")
+        return connector
     }
     fun initProvidersFromSupplierList(suppliers:List<SupplierData>){
         for(supplier in suppliers){
             when(supplier.name){
-                "action" -> createDataProvider<ActionConnector>(supplier.supplierId,supplier.name)
+                "action" -> createDataProvider<ActionConnector>(supplier.supplierId,supplier.name, supplier.settings)
             }
         }
     }
-    fun <T:Connector>createDataProvider(id:Int,name:String):DataProvider?{
+    fun <T:Connector>createDataProvider(id:Int,name:String, authSettings : HashMap<String,String>? = null ):DataProvider?{
         if(!dataProviders.any { it.key == name }){
             val connector =  makeConnector(name,ActionConnector::class)
+            if(authSettings!=null){
+                connector.setAuthentication(authSettings)
+            }
             val newProvider =  DataProvider(id, name)
             newProvider.setConnector(connector)
             listenProviderForUpdates(newProvider)
@@ -116,7 +112,6 @@ class ProviderManager() {
     fun getProvider(id:Int):DataProvider?{
        return this.dataProviders.entries.firstOrNull{it.value.supplierId == id}?.value
     }
-
 
     fun getCategories(providerName: String) {
         getDataProvider(providerName)?.getCategories()
