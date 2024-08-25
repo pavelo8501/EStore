@@ -15,6 +15,8 @@ class DBManager(url:String, user:String, password:String, driver:String? = null)
     var defaultDriver = "com.mysql.cj.jdbc.Driver"
     private val connections = hashMapOf<String,Database>()
 
+    var updateScheduleService : UpdateScheduleService? = null
+
     val services : MutableMap<String,ServiceContainer<DatabaseService>> = mutableMapOf()
 
     init {
@@ -38,6 +40,9 @@ class DBManager(url:String, user:String, password:String, driver:String? = null)
             addService("CategoryService",name,categoryService)
             val productService = ProductService(databaseConnection)
             addService("ProductService",name,productService)
+
+            this.updateScheduleService = UpdateScheduleService(databaseConnection)
+
             connected = true
         }catch (e:Exception){
             throw Exception("Error connecting to database")
@@ -66,6 +71,14 @@ class DBManager(url:String, user:String, password:String, driver:String? = null)
     fun productService() : ProductService{
         val container = services["ProductService"]
         return container?.service as ProductService
+    }
+
+    fun updateScheduleService() : UpdateScheduleService{
+        if(updateScheduleService == null){
+            throw Exception("UpdateScheduleService not initialized")
+        }else{
+            return this.updateScheduleService!!
+        }
     }
 
     fun connection(name:String = "default"):Database{

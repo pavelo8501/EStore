@@ -17,7 +17,6 @@ plugins {
 group = "example.com"
 version = "0.0.1"
 
-
 application {
     mainClass.set("example.com.ApplicationKt")
 
@@ -36,9 +35,12 @@ dependencies {
     implementation("io.ktor:ktor-serialization-kotlinx-json-jvm")
     implementation("io.ktor:ktor-server-content-negotiation-jvm")
 
+    implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.6.0")
+
     implementation("org.jetbrains.exposed:exposed-core:$exposed_version")
     implementation("org.jetbrains.exposed:exposed-jdbc:$exposed_version")
     implementation("org.jetbrains.exposed:exposed-dao:$exposed_version")
+    implementation("org.jetbrains.exposed:exposed-kotlin-datetime:$exposed_version")
     implementation("com.zaxxer:HikariCP:$hikari_version")
     implementation("mysql:mysql-connector-java:$mysql_version")
 

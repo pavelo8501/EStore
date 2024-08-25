@@ -1,27 +1,25 @@
 package adminApi.com.datareader.services
 
-import adminApi.com.datareader.classes.Method
-import adminApi.com.datareader.classes.MethodType
-import adminApi.com.datareader.classes.ServiceMethodResult
+import adminApi.com.common.statistics.DataType
+import adminApi.com.common.statistics.ServiceCallResult
+import adminApi.com.datareader.classes.DataServiceCallResult
 import adminApi.com.datareader.connectors.ActionConnector
 import adminApi.com.datareader.connectors.Connector
-import io.ktor.client.call.*
-import io.ktor.client.request.*
-import io.ktor.client.request.headers
-import io.ktor.client.statement.*
-import io.ktor.http.*
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.nio.file.Paths
 
-class JsonFileDataService<T: Connector>(connector : T)  : DataService() {
+class JsonFileDataService(private val connector: Connector) : DataService() {
 
     init {
         setConnector(connector)
     }
 
-    override suspend fun executeMethod(methodName: String) : ServiceMethodResult?{
+    override suspend fun executeCall(methodName: String): DataServiceCallResult {
+
         val method = getMethod(methodName)
+
+        val serviceMethodResult = DataServiceCallResult(DataType.JSON,"actionFromFile", methodName, method.tableName)
 
         var path = Paths.get("").toAbsolutePath().toString()
         when(methodName){
@@ -39,12 +37,13 @@ class JsonFileDataService<T: Connector>(connector : T)  : DataService() {
             coerceInputValues = true
         }
 
-        val result = decodeFormat.decodeFromString<ActionConnector.Response>(responseString)
-
-        if(!result.success){
-            throw Exception(result.errorMessage)
+        val response = decodeFormat.decodeFromString<ActionConnector.Response>(responseString)
+        if (response.success) {
+            serviceMethodResult.setResult(response.data)
+        } else {
+            serviceMethodResult.setError(500, response.errorMessage!!)
         }
-        return  ServiceMethodResult(connectorName = "action", methodName = methodName, tableName = "producers" ,  data = result.data)
+        return serviceMethodResult
     }
 
 }

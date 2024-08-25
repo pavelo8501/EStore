@@ -26,11 +26,11 @@ abstract class DataModelClass(jsonElement:JsonElement? = null) :IDataModel {
     override var supplierId: Int = 0
     override var providerId: String = ""
     var fromDataManager : Boolean = false
-
+    var markedForRemoval : Boolean = false
 
 
     override fun strProp(propName :String,parseToString:Boolean) :String{
-        return converter.strProp(propName)
+        return converter.strProp(propName,parseToString)
     }
 
     override fun intProp(propName :String) :Int{

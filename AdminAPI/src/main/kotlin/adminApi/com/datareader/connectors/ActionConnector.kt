@@ -4,9 +4,9 @@ import adminApi.com.datareader.classes.Method
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
-class ActionConnector() : Connector() {
+class ActionConnector() : ConnectorAbstraction() {
 
-    companion object  {
+    companion object {
         fun categoryMappings(): HashMap<String,String> {
             val result : HashMap<String,String> =  hashMapOf()
             result["categoryId"] = "categoryId"
@@ -15,8 +15,9 @@ class ActionConnector() : Connector() {
             result["language"] = "language"
             return result
         }
-        fun producerMappings(): HashMap<String,String> {
-            val result : HashMap<String,String> =  hashMapOf()
+
+        fun producerMappings(): HashMap<String, String> {
+            val result : HashMap<String, String> = hashMapOf()
             result["producerId"] = "producerId"
             result["name"] = "name"
             result["description"] = "description"

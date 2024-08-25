@@ -8,48 +8,64 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import java.awt.geom.Line2D
 
-abstract class Connector {
+interface Connector {
+    var initialized: Boolean
+    val authParams: MutableMap<String,AuthParam>
+    var name: String
+    val methods: MutableMap<String, Method>
 
-    var initialized : Boolean = false
-    val authParams : MutableMap<String,AuthParam> = mutableMapOf()
+    fun getApiKey(): String
+    fun getAuthParamValue(key: String): String
+    fun setAuthParam(name: String, value: String)
+    fun getMethod(name: String): Method
+    fun setAuthentication(settings: HashMap<String, String>)
+}
 
-    abstract var name : String
-    abstract var url : String
+interface WebConnector : Connector {
+    var url: String
+}
 
-    val methods : MutableMap<String, Method> = mutableMapOf()
+abstract class ConnectorAbstraction() : WebConnector {
 
-    fun getApiKey() : String {
-        if(authParams.containsKey("apiKey")){
-            return authParams["apiKey"]!!.value
-        }else{
-            return ""
+    override var initialized: Boolean = false
+    override val authParams: MutableMap<String, AuthParam> = mutableMapOf()
+
+    abstract override var name: String
+    abstract override var url: String
+
+    override val methods: MutableMap<String, Method> = mutableMapOf()
+
+    override fun getApiKey(): String {
+        return if (authParams.containsKey("apiKey")) {
+            authParams["apiKey"]!!.value
+        } else {
+            ""
         }
     }
 
-    fun getAuthValue(key:String) : String{
-        if(authParams.containsKey(key)){
+    override fun getAuthParamValue(key: String): String {
+        if (authParams.containsKey(key)){
             return authParams[key]!!.value
-        }else{
+        } else {
             throw Exception("Auth param $key not found")
         }
     }
-    fun setAuthParam(name:String, value:String){
+
+    override fun setAuthParam(name: String, value: String) {
         authParams[name] = AuthParam(name, value)
     }
 
-
-    fun getMethod(name:String) : Method {
-        if(methods.containsKey(name)){
+    override fun getMethod(name: String): Method {
+        if(methods.containsKey(name)) {
             return methods[name]!!
         }
         throw Exception("Method $name not found in connector")
     }
 
-    fun setAuthentication( settings: HashMap<String,String>){
+    override fun setAuthentication(settings: HashMap<String, String>) {
         settings.forEach { authParam ->
             this.setAuthParam(authParam.key, authParam.value)
         }
         initialized = true
     }
-
 }

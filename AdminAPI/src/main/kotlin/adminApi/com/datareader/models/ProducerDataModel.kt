@@ -22,5 +22,10 @@ class ProducerDataModel(jsonElement: JsonElement? = null) : DataModelClass(jsonE
             this.providerId = data.providerId
             this.name = data.name
         }
+        this.markedForRemoval = data.markedForRemoval
+    }
+
+    init {
+        val a = 10
     }
 }

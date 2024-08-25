@@ -3,6 +3,10 @@ package adminApi.com.database.classes
 import adminApi.com.database.services.Producers
 import adminApi.com.general.models.data.ICommonData
 import adminApi.com.general.models.data.ProducerData
+import kotlinx.datetime.Clock
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.todayIn
 import org.jetbrains.exposed.dao.IntEntity
 import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
@@ -16,6 +20,18 @@ abstract class DBEntity(id: EntityID<Int>) :IntEntity(id) {
     abstract var supplierId : Int
     // id as provided by the data provider (i.e Supplier)
     abstract var providerId : String
+    abstract var markedForRemovalAt : LocalDate?
+    var markedForRemoval : Boolean
+        get() = markedForRemovalAt != null
+        set(value) {
+            if(value){
+                if(markedForRemovalAt == null){
+                    val now: LocalDate = Clock.System.todayIn(TimeZone.UTC)
+                    markedForRemovalAt = now
+                }
+            }
+        }
+
 
     abstract fun toData(): ICommonData
     abstract fun fromData(source: ICommonData)

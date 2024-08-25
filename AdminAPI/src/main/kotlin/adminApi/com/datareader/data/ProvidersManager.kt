@@ -1,14 +1,21 @@
 package adminApi.com.datareader.data
 
+import adminApi.com.database.services.SupplierEntity
 import adminApi.com.datareader.classes.ProviderDataListener
 import adminApi.com.datareader.connectors.ActionConnector
 import adminApi.com.datareader.connectors.Connector
+import adminApi.com.general.DataListType
 import adminApi.com.general.DataManagerMessage
+import adminApi.com.general.classes.ExecutionResults
+import adminApi.com.general.models.SupplierElement
 import adminApi.com.general.models.data.CategoryData
 import adminApi.com.general.models.data.ProducerData
 import adminApi.com.general.models.data.ProductData
-import adminApi.com.general.models.data.SupplierData
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import kotlin.reflect.KClass
 import kotlin.reflect.full.createInstance
 
@@ -49,32 +56,37 @@ class ProviderManager() {
     companion object ProviderManagerConnector{
 
         fun sendProducers(id : Int, items :List<ProducerData>){
-            producerSubject.value =  DataManagerMessage(id,"producers", items)
+            producerSubject.value =  DataManagerMessage(id,"producers", items, DataListType.UPDATE)
+        }
+        fun sendProducersForRemoval(id : Int, items :List<ProducerData>){
+            producerSubject.value =  DataManagerMessage(id,"producers", items, DataListType.REMOVE)
         }
         fun sendCategories(id : Int, items :List<CategoryData>){
-            categorySubject.value =  DataManagerMessage(id,"categories", items)
+            categorySubject.value =  DataManagerMessage(id,"categories", items, DataListType.UPDATE)
+        }
+        fun sendCategoriesForRemoval(id : Int, items :List<CategoryData>){
+            categorySubject.value =  DataManagerMessage(id,"categories", items, DataListType.REMOVE)
         }
         fun sendProducts(id : Int, items :List<ProductData>) {
-            productSubject.value = DataManagerMessage(id,"products", items)
+            productSubject.value = DataManagerMessage(id,"products", items, DataListType.UPDATE)
+        }
+        fun sendProductsForRemoval(id : Int, items :List<ProductData>){
+            productSubject.value =  DataManagerMessage(id,"producers", items, DataListType.REMOVE)
         }
         val producerSubject = MutableStateFlow<DataManagerMessage<ProducerData>?>(null)
         val categorySubject = MutableStateFlow<DataManagerMessage<CategoryData>?>(null)
         val productSubject = MutableStateFlow<DataManagerMessage<ProductData>?>(null)
     }
 
+   // private val coroutineContext = Job()
+    val providerManagerScope = CoroutineScope(Dispatchers.IO)
+
     private val dataProviders : MutableMap<String,DataProvider> = mutableMapOf()
 
-    private val dataListener = ProviderDataListener(this)
+    private val dataListener = ProviderDataListener(this,providerManagerScope)
 
     init {
         this.dataListener.onStart()
-    }
-
-    private fun listenProviderForUpdates(provider: DataProvider){
-//        provider.onUpdated = { params -> run {
-//              val subjectValue = ProviderUpdateArgs(provider.providerId,params.containerName,(params.dataContainer as DataContainer<IDataModel>))
-//            }
-//        }
     }
 
     private fun <T:Connector>makeConnector(name:String, clazz:KClass<T>):T{
@@ -82,7 +94,7 @@ class ProviderManager() {
           //  connector.setSettings(settings)
         return connector
     }
-    fun initProvidersFromSupplierList(suppliers:List<SupplierData>){
+    fun initProvidersFromSupplierList(suppliers:List<SupplierElement>){
         for(supplier in suppliers){
             when(supplier.name){
                 "action" -> createDataProvider<ActionConnector>(supplier.supplierId,supplier.name, supplier.settings)
@@ -97,7 +109,6 @@ class ProviderManager() {
             }
             val newProvider =  DataProvider(id, name)
             newProvider.setConnector(connector)
-            listenProviderForUpdates(newProvider)
             this.dataProviders[name] = newProvider
             return newProvider
         }
@@ -114,41 +125,48 @@ class ProviderManager() {
     }
 
     fun getCategories(providerName: String) {
-        getDataProvider(providerName)?.getCategories()
-    }
-
-    fun getProducers(providerName: String? = null) {
-        if (providerName == null) {
-            for (provider in dataProviders.values) {
-                provider.getProducers()
-            }
-        }else{
-            getDataProvider(providerName)?.getProducers()
+        providerManagerScope.launch {
+            getDataProvider(providerName)?.getCategories("Manager")
         }
     }
 
-    fun getProducts(providerName: String? = null) {
+    private var producersSubject =  MutableSharedFlow<ExecutionResults>()
+    fun getProducers(providerName: String? = null): SharedFlow<ExecutionResults> {
         if (providerName == null) {
             for (provider in dataProviders.values) {
-                provider.getProducts()
+                providerManagerScope.launch {
+                    provider.getProducers("Manager")
+                }
             }
         }else{
-            getDataProvider(providerName)?.getProducts()
+            providerManagerScope.launch {
+                getDataProvider(providerName)?.getProducers("Manager")
+            }
         }
+        return producersSubject
     }
 
-//    private fun getCategories(service : RestDataService) {
-//         val method = service.connector.getMethod("getCategories")
-//         runBlocking {
-//           val result =  service.executeMethod(method)
-//             if(result!=null){
-//                 if(dataProviders.containsKey("action")){
-//                     dataProviders["action"]!!.categories.setSourceData(result.data)
-//                 }
-//             }
-//         }
-//    }
-
-
+    private var productsSubject =  MutableSharedFlow<ExecutionResults>()
+    fun getProducts(providerName: String? = null) : SharedFlow<ExecutionResults> {
+        if (providerName == null) {
+            for (provider in dataProviders.values) {
+                providerManagerScope.launch {
+                    provider.getProducts("Manager")
+                    productsSubject.emit(ExecutionResults(1,"test"))
+                }
+            }
+        }else{
+            val a  = 10
+            getDataProvider(providerName)?.let {
+                providerManagerScope.launch {
+                    it.getProducts("Manager")
+                    productsSubject.emit(ExecutionResults(it.supplierId,"products"))
+                }
+            }
+            val b =10
+        }
+        val a = 10
+        return productsSubject
+    }
 
 }

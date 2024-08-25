@@ -7,5 +7,4 @@ class CategoryElement() : ElementClass()  {
     private val categoryEntity :  CategoryEntity?
          get() = super.dbEntity as CategoryEntity?
 
-
 }

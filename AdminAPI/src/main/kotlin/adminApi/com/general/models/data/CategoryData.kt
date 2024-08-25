@@ -1,10 +1,6 @@
 package adminApi.com.general.models.data
 import kotlinx.serialization.Serializable
 
-
-
-
-
 @Serializable
 data class CategoryData(
     override var id :Int,
@@ -12,4 +8,6 @@ data class CategoryData(
     override var providerId: String,
     var parentCategoryId : Int,
     var name: String
-): ICommonData
+): ICommonData{
+    override var markedForRemoval: Boolean = false
+}

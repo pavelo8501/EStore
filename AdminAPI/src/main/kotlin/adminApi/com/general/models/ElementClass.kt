@@ -22,12 +22,24 @@ open class ElementClass() {
     val providerId : String
         get() = dbEntity?.providerId ?: ""
 
+    private var _markedForRemoval :Boolean = false
+    var markedForRemoval  :Boolean
+        get() = _markedForRemoval
+        set(value) {
+            if(value){
+                onRemoveEntity?.invoke(dbEntity!!)
+            }
+            _markedForRemoval = value
+        }
+
+
     var sendDataObjectToReader : ((ICommonData) -> Unit)? = null
     var onUpdateEntity : ((DBEntity, ICommonData) -> Unit)? = null
+    var onRemoveEntity : ((DBEntity) -> Unit)? = null
 
 
     init {
-       //sendDataObjectToReader?.invoke(this.dbEntity.toModel())
+       this._markedForRemoval = dbEntity?.markedForRemovalAt != null
     }
 
     private fun compareEntity(entity: DBEntity) : Boolean{
@@ -38,7 +50,7 @@ open class ElementClass() {
     fun initFromEntity(entity: DBEntity){
         if(this.dbEntity == null) {
             this.dbEntity = entity
-             sendDataObjectToReader?.invoke(entity.toData())
+            sendDataObjectToReader?.invoke(entity.toData())
         }else{
             val equal = compareEntity(entity)
             if(!equal){

@@ -26,6 +26,7 @@ class CategoryDataModel(jsonElement:JsonElement? = null) : DataModelClass(jsonEl
             this.parentCategoryId = data.parentCategoryId
             this.name = data.name
         }
+        this.markedForRemoval = data.markedForRemoval
     }
 
 }

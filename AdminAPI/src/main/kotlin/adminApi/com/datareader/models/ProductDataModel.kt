@@ -63,6 +63,11 @@ class ProductDataModel(jsonElement:JsonElement? = null) : DataModelClass(jsonEle
             this.weight = data.weight
             this.additionalParameters = data.additionalParameters
         }
+        this.markedForRemoval = data.markedForRemoval
+    }
+
+    init {
+        val a = 10
     }
 
 }

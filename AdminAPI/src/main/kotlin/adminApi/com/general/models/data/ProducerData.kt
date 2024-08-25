@@ -8,4 +8,6 @@ data class ProducerData(
     override var supplierId :Int,
     override var providerId: String,
     var name: String = ""
-): ICommonData
+): ICommonData{
+    override var markedForRemoval: Boolean = false
+}

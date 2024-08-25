@@ -5,10 +5,11 @@ import adminApi.com.database.classes.DBEntity
 import adminApi.com.database.services.CategoryEntity
 import adminApi.com.database.services.ProducerEntity
 import adminApi.com.general.models.CategoryElement
+import adminApi.com.general.models.SupplierElement
 import adminApi.com.general.models.data.CategoryData
 import adminApi.com.general.models.data.ProducerData
 
-class CategoryContainer(val db:DBManager)  : BaseContainer<CategoryElement, CategoryData>(db.categoryService()) {
+class CategoryContainer(suppliers : List<SupplierElement>, val db:DBManager)  : BaseContainer<CategoryElement, CategoryData>(suppliers,db.categoryService()) {
 
     override val containerName = "CategoryContainer"
 

@@ -11,10 +11,12 @@ import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.dao.id.IntIdTable
 import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.kotlin.datetime.date
 
 
 object Products : IntIdTable("products", "id") {
     val supplierId = integer("supplier_id")
+    val markedForRemovalAt = date("marked_for_removal_at").nullable()
     val providerId = varchar("providerId",64)
     val producerId = varchar("producerId",32)
     val producerCode = varchar("producerCode",64)
@@ -36,6 +38,7 @@ class ProductEntity(id: EntityID<Int>) :DBEntity(id) {
 
     override var supplierId by Products.supplierId
     override var providerId   by Products.providerId
+    override var markedForRemovalAt by Products.markedForRemovalAt
     var producerId by Products.producerId
     var producerCode by Products.producerCode
     var categoriesIds by Products.categoriesIds
@@ -51,6 +54,7 @@ class ProductEntity(id: EntityID<Int>) :DBEntity(id) {
     var additionalParameters by Products.additionalParameters
 
     override fun toData(): ProductData {
+        val marketForRemoval = markedForRemovalAt != null
         return ProductData(
             id.value,
             supplierId,
@@ -67,7 +71,7 @@ class ProductEntity(id: EntityID<Int>) :DBEntity(id) {
             sizeY,
             sizeZ,
             weight,
-            additionalParameters)
+            additionalParameters).apply { markedForRemoval = marketForRemoval }
     }
 
     override fun fromData(source: ICommonData) {

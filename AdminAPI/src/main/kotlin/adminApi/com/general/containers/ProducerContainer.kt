@@ -5,9 +5,10 @@ import adminApi.com.database.DBManager
 import adminApi.com.database.classes.DBEntity
 import adminApi.com.database.services.ProducerEntity
 import adminApi.com.general.models.ProducerElement
+import adminApi.com.general.models.SupplierElement
 import adminApi.com.general.models.data.ProducerData
 
-class ProducersContainer(val db:DBManager)  : BaseContainer<ProducerElement, ProducerData>(db.producersService()) {
+class ProducersContainer(suppliers : List<SupplierElement>, val db:DBManager)  : BaseContainer<ProducerElement, ProducerData>(suppliers,db.producersService()) {
 
     override val containerName = "ProducersContainer"
 

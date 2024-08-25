@@ -4,16 +4,16 @@ import adminApi.com.database.DBManager
 import adminApi.com.database.services.SupplierEntity
 import adminApi.com.datareader.connectors.ActionConnector
 import adminApi.com.datareader.data.ProviderManager
-import adminApi.com.general.models.data.SupplierData
+import adminApi.com.general.models.SupplierElement
 
 class SystemManager(val db:DBManager) {
 
    // private val databaseManager = DBManager("localhost/estore","root","")
     private val providerManager = ProviderManager()
 
-    private val suppliers: HashMap<String,SupplierData> = hashMapOf()
+    private val suppliers: HashMap<String,SupplierElement> = hashMapOf()
 
-    private fun initSupplier(supplier: SupplierData): SupplierData?{
+    private fun initSupplier(supplier: SupplierElement): SupplierElement?{
 
         val provider = when(supplier.name){
             "action" -> providerManager.createDataProvider<ActionConnector>(supplier.supplierId,supplier.name)
@@ -30,21 +30,8 @@ class SystemManager(val db:DBManager) {
 
     }
 
-    fun init(){
-       val result =  db.suppliersService().select<SupplierEntity>()
-       for (entity in result) {
-           var supplier : SupplierData? = entity.toModel()
-           if(supplier != null){
-               supplier = initSupplier(supplier)
-               if (supplier != null){
-                   suppliers[supplier.name] = supplier
-               }
-           }
-       }
-    }
 
-
-    fun getSuppliers():List<SupplierData>{
+    fun getSuppliers():List<SupplierElement>{
         return suppliers.values.toList()
     }
 }

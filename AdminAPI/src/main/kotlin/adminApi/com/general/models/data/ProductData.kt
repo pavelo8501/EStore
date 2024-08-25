@@ -20,4 +20,6 @@ data class ProductData(
     var sizeZ: Int,
     var weight : Int,
     var additionalParameters : String
-): ICommonData
+): ICommonData{
+    override var markedForRemoval: Boolean = false
+}

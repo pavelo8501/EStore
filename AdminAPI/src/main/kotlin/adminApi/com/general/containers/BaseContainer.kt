@@ -2,7 +2,9 @@ package adminApi.com.general.containers
 
 import adminApi.com.database.classes.DBEntity
 import adminApi.com.database.services.DatabaseService
+import adminApi.com.general.DataManager
 import adminApi.com.general.models.ElementClass
+import adminApi.com.general.models.SupplierElement
 import adminApi.com.general.models.data.ICommonData
 import adminApi.com.general.models.data.ProducerData
 
@@ -12,7 +14,7 @@ class DataContainerUpdate<D>(
     )
 
 
-abstract class BaseContainer<T:ElementClass, D:ICommonData>(val dbService : DatabaseService ) {
+abstract class BaseContainer<T:ElementClass, D:ICommonData>(val suppliers : List<SupplierElement>, val dbService : DatabaseService ) {
 
     abstract val containerName :String
     abstract fun createElement():T
@@ -33,10 +35,17 @@ abstract class BaseContainer<T:ElementClass, D:ICommonData>(val dbService : Data
         }
     }
 
+    protected fun markDeleteEntity(entity : DBEntity){
+        dbService.dbQuery {
+            entity.markedForRemoval = true
+        }
+    }
+
     private fun bindToEntityCallbacks(element: T) {
        // @Suppress("UNCHECKED_CAST")
         element.sendDataObjectToReader = { data -> dataRecordBuffer.add((data as D))  }
         element.onUpdateEntity = { entity, data -> this.updateEntity(entity, data) }
+        element.onRemoveEntity = { entity -> this.markDeleteEntity(entity)}
     }
 
     fun getElements(): List<T>{
@@ -81,7 +90,21 @@ abstract class BaseContainer<T:ElementClass, D:ICommonData>(val dbService : Data
                 }
             }}
         }
-      //  deleteRedundant(supplierId ,records)
+    }
+
+    fun processRemovalListFromDataProvider(supplierId:Int, records : List<ICommonData>){
+        if(!this.recordsUpdated){
+            println("Writer supplied data before database loaded")
+            return
+        }
+        records.forEach {  record-> run {
+            elementList.firstOrNull{  it.providerId == record.providerId && it.supplierId == supplierId  }.let { element ->
+                if(element != null){
+                   element.markedForRemoval = true
+                }
+            }}
+        }
+
     }
 
     fun deleteRedundant(supplierId:Int ,  records : List<ICommonData>){
@@ -102,8 +125,22 @@ abstract class BaseContainer<T:ElementClass, D:ICommonData>(val dbService : Data
         }
     }
 
-    fun init(){
+    suspend fun init(){
         try {
+            for(supplier in suppliers){
+                val result = dbService.dbQuery {
+                    dbService.select<DBEntity>()
+                }
+                for (entity in result) {
+                    try {
+                        val newElement = createElement()
+                        addElement(newElement, entity)
+                    }catch (e:Exception){
+                        println(e.message)
+                    }
+                }
+            }
+
             val result = this.getDatabaseRecords()
             for (entity in result) {
                 try {
@@ -114,12 +151,13 @@ abstract class BaseContainer<T:ElementClass, D:ICommonData>(val dbService : Data
                 }
             }
             this.recordsUpdated = true
-            if(this.dataRecordBuffer.isNotEmpty()){
-                val recordsBySupplier = this.dataRecordBuffer.groupBy { it.supplierId }
+            val recordsBySupplier = this.dataRecordBuffer.groupBy { it.supplierId }
+            if(recordsBySupplier.isNotEmpty()) {
                 recordsBySupplier.forEach { (supplierId, records) ->  onSendDataToReader?.invoke(DataContainerUpdate(supplierId,records)) }
                 this.dataRecordBuffer.clear()
+            }else{
+                suppliers.forEach { supplier ->onSendDataToReader?.invoke(DataContainerUpdate(supplier.supplierId, mutableListOf()))  }
             }
-
         }catch (ex : Exception){
             this.recordsUpdated = false
             throw Exception("Could not process records from database")

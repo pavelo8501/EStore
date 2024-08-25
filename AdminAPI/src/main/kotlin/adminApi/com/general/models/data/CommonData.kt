@@ -7,4 +7,5 @@ sealed interface ICommonData{
     var id :Int
     var supplierId : Int
     var providerId : String
+    var markedForRemoval : Boolean
 }
