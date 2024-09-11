@@ -35,12 +35,15 @@ class DataManager(val db : DBManager) {
         fun sendProducerUpdate(id : Int, items :List<ProducerData>){
             producerSubject.value =  DataManagerMessage(id,"producers", items, DataListType.UPDATE)
         }
+
         fun sendCategoryUpdate(id : Int, items :List<CategoryData>){
             categorySubject.value =  DataManagerMessage(id,"categories", items, DataListType.UPDATE)
         }
+
         fun sendProductUpdate(id : Int, items :List<ProductData>){
             productSubject.value =  DataManagerMessage(id,"categories", items, DataListType.UPDATE)
         }
+
         val producerSubject = MutableStateFlow<DataManagerMessage<ProducerData>?>(null)
         val categorySubject = MutableStateFlow<DataManagerMessage<CategoryData>?>(null)
         val productSubject = MutableStateFlow<DataManagerMessage<ProductData>?>(null)

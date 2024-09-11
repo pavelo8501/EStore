@@ -1,5 +1,6 @@
 package adminApi.com.datareader.services
 
+import adminApi.com.common.statistics.DataSetType
 import adminApi.com.common.statistics.DataType
 import adminApi.com.datareader.classes.DataServiceCallResult
 import adminApi.com.datareader.classes.MethodType
@@ -29,7 +30,7 @@ class RestDataService<Connector>(private val connector: WebConnector) : DataServ
             DataType.JSON,
             connector.name,
             methodName,
-            callMethod.tableName
+            callMethod.tableName,
         )
         val response: HttpResponse = client.request(connector.url + callMethod.path) {
 
@@ -70,7 +71,7 @@ class RestDataService<Connector>(private val connector: WebConnector) : DataServ
         if (!apiResponse.success) {
             dataCallResult.setError(500, apiResponse.errorMessage!!)
         } else {
-            dataCallResult.setResult(apiResponse.data)
+            dataCallResult.setResult(apiResponse.data,DataSetType.COMPLETE)
         }
         return dataCallResult
     }

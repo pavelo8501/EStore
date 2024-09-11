@@ -2,6 +2,7 @@ package adminApi.com.common.dataflow
 
 import adminApi.com.common.statistics.*
 import adminApi.com.datareader.data.DataProvider
+import kotlin.reflect.KClass
 
 data class MeasurableCallResultImpl(
 
@@ -21,7 +22,7 @@ interface DataFlowMeter {
 }
 
 interface DataFlowMeterCompanion {
-    var parent : DataProvider?
+    var parent : Any?
     var objectName: String
     var module: ModuleName
     var supplierName: String
@@ -29,7 +30,7 @@ interface DataFlowMeterCompanion {
     val onDispatcherResultsSubmitted: ((ServiceCallResult) -> Unit)?
     val onMeterResultsSubmitted: ((MeasurableCallResult) -> Unit)?
 
-    fun init(name: String, module: ModuleName, supplierName: String, parent: DataProvider) {
+    fun init(name: String, module: ModuleName, supplierName: String, parent: Any) {
         this.objectName = name
         this.module = module
         this.supplierName = supplierName
@@ -37,19 +38,34 @@ interface DataFlowMeterCompanion {
     }
 
     abstract fun registerMeasurement(serviceCallResult: ServiceCallResult)
-    abstract fun submitResultForMeasurement(operation: String, elapsedTime: Long)
+    abstract fun registerMeasurement(operation: String, elapsedTime: Long)
 }
 
 interface DataFlowMeasurable {
-    suspend fun <T> startMeasure(
+    suspend fun <T> startMeasureSuspended(
         operationName: String,
         flowType: FlowType,
         onResult: ((MeasurableCallResult) -> Unit)?,
-        block: suspend T.() -> Unit
+        block: suspend (T) -> Unit
     ): T {
         val measurement = MeasurableCallResult(operationName, flowType)
         measurement.start()
-        (this as T).block()
+        block(this as T)
+        measurement.stop()
+        onResult?.invoke(measurement)
+        return (this as T)
+    }
+
+    fun <T> startMeasure(
+    operationName: String,
+    flowType: FlowType,
+    onResult: ((MeasurableCallResult) -> Unit)?,
+    block:  T.() -> Unit
+    ): T {
+        val measurement = MeasurableCallResult(operationName, flowType)
+        measurement.start()
+        block(this as T)
+       // (this as T).block()
         measurement.stop()
         onResult?.invoke(measurement)
         return (this as T)

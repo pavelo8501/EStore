@@ -1,5 +1,6 @@
 package adminApi.com.datareader.services
 
+import adminApi.com.common.statistics.DataSetType
 import adminApi.com.common.statistics.DataType
 import adminApi.com.common.statistics.ServiceCallResult
 import adminApi.com.datareader.classes.DataServiceCallResult
@@ -39,7 +40,7 @@ class JsonFileDataService(private val connector: Connector) : DataService() {
 
         val response = decodeFormat.decodeFromString<ActionConnector.Response>(responseString)
         if (response.success) {
-            serviceMethodResult.setResult(response.data)
+            serviceMethodResult.setResult(response.data, DataSetType.COMPLETE)
         } else {
             serviceMethodResult.setError(500, response.errorMessage!!)
         }

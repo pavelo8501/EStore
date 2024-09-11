@@ -1,5 +1,6 @@
 package adminApi.com.datareader.data
 
+import adminApi.com.common.dataflow.DataDispatcherResultImpl
 import adminApi.com.database.services.SupplierEntity
 import adminApi.com.datareader.classes.ProviderDataListener
 import adminApi.com.datareader.connectors.ActionConnector
@@ -67,9 +68,11 @@ class ProviderManager() {
         fun sendCategoriesForRemoval(id : Int, items :List<CategoryData>){
             categorySubject.value =  DataManagerMessage(id,"categories", items, DataListType.REMOVE)
         }
+
         fun sendProducts(id : Int, items :List<ProductData>) {
             productSubject.value = DataManagerMessage(id,"products", items, DataListType.UPDATE)
         }
+
         fun sendProductsForRemoval(id : Int, items :List<ProductData>){
             productSubject.value =  DataManagerMessage(id,"producers", items, DataListType.REMOVE)
         }
@@ -126,7 +129,7 @@ class ProviderManager() {
 
     fun getCategories(providerName: String) {
         providerManagerScope.launch {
-            getDataProvider(providerName)?.getCategories("Manager")
+            getDataProvider(providerName)?.getCategories(DataDispatcherResultImpl("Temp","Container",0))
         }
     }
 
@@ -135,12 +138,12 @@ class ProviderManager() {
         if (providerName == null) {
             for (provider in dataProviders.values) {
                 providerManagerScope.launch {
-                    provider.getProducers("Manager")
+                    provider.getProducers(DataDispatcherResultImpl("Temp","Container",0))
                 }
             }
         }else{
             providerManagerScope.launch {
-                getDataProvider(providerName)?.getProducers("Manager")
+                getDataProvider(providerName)?.getProducers(DataDispatcherResultImpl("Temp","Container",0))
             }
         }
         return producersSubject
@@ -151,7 +154,7 @@ class ProviderManager() {
         if (providerName == null) {
             for (provider in dataProviders.values) {
                 providerManagerScope.launch {
-                    provider.getProducts("Manager")
+                    provider.getProducts(DataDispatcherResultImpl("Temp","Container",0))
                     productsSubject.emit(ExecutionResults(1,"test"))
                 }
             }
@@ -159,7 +162,7 @@ class ProviderManager() {
             val a  = 10
             getDataProvider(providerName)?.let {
                 providerManagerScope.launch {
-                    it.getProducts("Manager")
+                    it.getProducts(DataDispatcherResultImpl("Temp","Container",0))
                     productsSubject.emit(ExecutionResults(it.supplierId,"products"))
                 }
             }

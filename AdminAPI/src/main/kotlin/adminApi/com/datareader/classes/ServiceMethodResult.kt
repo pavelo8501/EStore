@@ -1,8 +1,6 @@
 package adminApi.com.datareader.classes
 
-import adminApi.com.common.statistics.CallResultImpl
-import adminApi.com.common.statistics.DataType
-import adminApi.com.common.statistics.ServiceCallResult
+import adminApi.com.common.statistics.*
 import adminApi.com.datareader.models.ProducerDataModel
 import kotlinx.serialization.json.JsonElement
 
@@ -17,10 +15,13 @@ class DataServiceCallResult(
     override var errorCode: Int? = null
     override var errorMessage: String? = null
     override var count: Int = 0
-    override var dataList: List<JsonElement> = emptyList()
+    override val dataContainer = DataFlowContainerImpl()
 
-    fun setResult(dataList: List<JsonElement>) {
-        this.dataList = dataList
+
+    fun setResult(dataList: List<JsonElement>, dataSetType:DataSetType) {
+        dataContainer.dataList = dataList
+        dataContainer.dataType = DataType.JSON
+        dataContainer.dataSetType = dataSetType
         this.success = true
         this.count = dataList.size
     }

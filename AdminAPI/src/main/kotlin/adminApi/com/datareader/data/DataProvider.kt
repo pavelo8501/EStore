@@ -1,9 +1,6 @@
 package adminApi.com.datareader.data
 
-import adminApi.com.common.dataflow.DataDispatcherImpl
-import adminApi.com.common.dataflow.DataFlowMeter
-import adminApi.com.common.dataflow.DataFlowMeterCompanion
-import adminApi.com.common.dataflow.MeasurableCallResultImpl
+import adminApi.com.common.dataflow.*
 import adminApi.com.common.statistics.*
 import adminApi.com.datareader.connectors.ActionConnector
 import adminApi.com.datareader.connectors.Connector
@@ -18,26 +15,31 @@ data class ProviderUpdateParams(val providerId:Int, val containerName : String, 
 class DataProvider(val supplierId: Int, val name: String) : DataFlowMeter {
 
     companion object MeterCompanion : DataFlowMeterCompanion{
-        override var parent: DataProvider? = null
-        override var objectName: String = ""
+        override var parent: Any? = null
+        override var objectName: String = "DataProvider"
         override var module: ModuleName = ModuleName.DATAREADER
         override var supplierName: String = ""
         override val measurements: MutableList<IMeasurableCallResult> = mutableListOf()
 
         override val onDispatcherResultsSubmitted = { result: ServiceCallResult -> this.registerMeasurement(result) }
         override val onMeterResultsSubmitted: ((MeasurableCallResult) -> Unit)? =
-            { result: MeasurableCallResult -> this.submitResultForMeasurement(result.operation, result.elapsedTime) }
+            { result: MeasurableCallResult -> this.registerMeasurement(result.operation, result.elapsedTime) }
 
         override fun registerMeasurement(serviceCallResult: ServiceCallResult) {
             if (serviceCallResult.success) {
-                val newRecord = MeasurableCallResultImpl(module, parent!!.name)
+                val newRecord = MeasurableCallResultImpl(module, objectName)
                 newRecord.count = serviceCallResult.count
                 this.measurements.add(newRecord)
             }
         }
 
-        override fun submitResultForMeasurement(operation: String, elapsedTime: Long) {
+        override fun registerMeasurement(operation: String, elapsedTime: Long) {
             this.measurements.firstOrNull { it.operation == operation }?.elapsedTime = elapsedTime
+        }
+
+        fun getLastMeasurement(category: DataCategory): IMeasurableCallResult? {
+            val first = measurements.firstOrNull{it.unitName == category}
+            return first
         }
     }
 
@@ -79,30 +81,33 @@ class DataProvider(val supplierId: Int, val name: String) : DataFlowMeter {
         // dataService = RestDataService<T>(connector)
     }
 
-    suspend fun getCategories(caller: String) = dataDispatcher.getData(DataCategory.CATEGORY) {
-        startMeasure<DataDispatcherImpl>("getCategories", FlowType.RECEIVE, onMeterResultsSubmitted) {
+    suspend fun getCategories(checkpoint: DataDispatcherResult) = dataDispatcher.getData(DataCategory.CATEGORY) {
+        startMeasureSuspended<DataDispatcherImpl>("getCategories", FlowType.RECEIVE, onMeterResultsSubmitted) {
             val dataReceived = dataService.executeCall("getCategories")
-            getServiceTransferResult(dataReceived)
+            processTransferResult(dataReceived)
         }
         val dataReceived = dataService.executeCall("getCategories")
-        categories.setDataFromSource(dataReceived.dataList, true)
+        dataDispatcher.startJourney(dataReceived.dataContainer, checkpoint, getLastMeasurement(DataCategory.CATEGORY))
+            .also { categories.setDataFromSource(it) }
     }
 
-    suspend fun getProducers(caller: String) = dataDispatcher.getData(DataCategory.PRODUCER) {
-        startMeasure<DataDispatcherImpl>("getProducers", FlowType.RECEIVE, onMeterResultsSubmitted) {
+    suspend fun getProducers(checkpoint: DataDispatcherResult) = dataDispatcher.getData(DataCategory.PRODUCER) {
+        startMeasureSuspended<DataDispatcherImpl>("getProducers", FlowType.RECEIVE, onMeterResultsSubmitted) {
             val dataReceived = dataService.executeCall("getProducers")
-            getServiceTransferResult(dataReceived)
+            processTransferResult(dataReceived)
         }
         val dataReceived = dataService.executeCall("getProducers")
-        producers.setDataFromSource(dataReceived.dataList, true)
+        dataDispatcher.startJourney(dataReceived.dataContainer, checkpoint, getLastMeasurement(DataCategory.PRODUCER))
+            .also { producers.setDataFromSource(it) }
     }
 
-    suspend fun getProducts(caller: String) = dataDispatcher.getData(DataCategory.PRODUCT) {
-        startMeasure<DataDispatcherImpl>("getProducts", FlowType.RECEIVE, onMeterResultsSubmitted) {
+    suspend fun getProducts(checkpoint: DataDispatcherResult) = dataDispatcher.getData(DataCategory.PRODUCT) {
+        startMeasureSuspended<DataDispatcherImpl>("getProducts", FlowType.RECEIVE, onMeterResultsSubmitted) {
             val dataReceived = dataService.executeCall("getProducts")
-            getServiceTransferResult(dataReceived)
+            processTransferResult(dataReceived)
         }
         val dataReceived = dataService.executeCall("getProducts")
-        products.setDataFromSource(dataReceived.dataList, true)
+        dataDispatcher.startJourney(dataReceived.dataContainer, checkpoint, getLastMeasurement(DataCategory.PRODUCT))
+            .also { products.setDataFromSource(it) }
     }
 }

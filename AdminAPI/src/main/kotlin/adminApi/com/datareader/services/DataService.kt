@@ -24,13 +24,6 @@ abstract class DataService {
         return receiver.block()
     }
 
-//    fun getUrl(): String {
-//        if(connector != null) {
-//            return connector!!.url
-//        }
-//        throw Exception("Connector not set")
-//    }
-
     fun getAuthValue(key: String): String {
         if (connector != null) {
             return connector!!.getAuthParamValue(key)

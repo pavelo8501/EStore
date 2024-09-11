@@ -1,11 +1,13 @@
 package adminApi.com.common.dataflow
 
-import adminApi.com.common.statistics.CallResult
-import adminApi.com.common.statistics.CallResultImpl
-import adminApi.com.common.statistics.DataCategory
-import adminApi.com.common.statistics.ServiceCallResult
+import adminApi.com.common.statistics.*
 import adminApi.com.datareader.classes.DataServiceCallResult
+import adminApi.com.datareader.data.containers.DataContainer
 import adminApi.com.general.models.data.ICommonData
+import kotlinx.coroutines.*
+import kotlinx.serialization.json.JsonElement
+import org.koin.core.definition.Callbacks
+import javax.security.auth.callback.Callback
 
 
 interface DataDispatcherResult {
@@ -14,7 +16,13 @@ interface DataDispatcherResult {
     val count: Int
 }
 
+interface DataBufferContainer {
+    val timeStart:Long
+    val dataContainer :DataFlowContainer
+}
+
 interface DataDispatcher {
+    val dataBuffer: MutableList<DataBufferContainer>
     var onResultsSubmit : ((ServiceCallResult) -> Unit)?
     var onDataReceived: (DataDispatcherResult) -> Unit
     var onDataBeforeDispatch: (() -> Unit)?
@@ -22,23 +30,28 @@ interface DataDispatcher {
     var onDataAfterDispatch: ((CallResult) -> Unit)?
     var onDataDispatchComplete: (() -> Unit)?
     var onBuffered: (()->Unit)?
-    var onBufferRelease: (()->Unit)?
+    //var onRelease: (()->List<ICommonData>)?
 
     abstract fun init(onSubmitResult: ((ServiceCallResult) -> Unit)?)
-    fun <L> addToBuffer(dataItems: List<L>)
-    abstract suspend fun <L,R> setData(
-        inputList: L? = null,
-        dataComplete: Boolean,
-        busy : Boolean,
-        body: (DataDispatcherImpl.() -> Unit)? = null,
-        receiver: suspend R.() -> Unit
-    ):DataDispatcher
+    fun <T>addToBuffer(dataItems: List<T>,container : DataFlowContainerImpl)
+//    abstract suspend fun <T>receiveData(
+//        dataContainer: DataFlowContainerImpl,
+//        busy: Boolean,
+//        body: (DataDispatcherImpl.() -> Unit)?,
+//        receiver: DataDispatcherImpl.() -> List<T>
+//    )
     abstract suspend fun getData(
         dataCategory: DataCategory,
         body: ((DataDispatcherImpl) -> Unit)? = null,
         receiver: suspend DataDispatcherImpl.() -> Unit
     ): DataDispatcher
+    abstract fun processTransferResult(callResult: DataServiceCallResult): ServiceCallResult
 }
+
+data class DataBufferContainerImpl(
+    override val timeStart: Long,
+    override val dataContainer: DataFlowContainer,
+):DataBufferContainer{}
 
 data class DataDispatcherResultImpl(
     override val sender: String,
@@ -47,37 +60,64 @@ data class DataDispatcherResultImpl(
 ) : DataDispatcherResult
 
 class DataDispatcherImpl() : DataDispatcher, DataFlowMeasurable {
+    override val dataBuffer: MutableList<DataBufferContainer> = mutableListOf()
+    var recipientBusy: Boolean = false
     override var onResultsSubmit: ((ServiceCallResult) -> Unit)? = null
     override var onDataReceived: (DataDispatcherResult) -> Unit = {}
     override var onDataBeforeDispatch: (() -> Unit)? = null
     override var onDataAfterDispatch: ((CallResult) -> Unit)? = null
     override var onDataDispatchComplete: (() -> Unit)? = null
     override var onException: ((Exception) -> Unit)? = null
-    override var onBuffered: (()->Unit)? = null
-    override var onBufferRelease: (()->Unit)? = null
+    override var onBuffered: (() -> Unit)? = null
 
-    override  fun init(onSubmitResult: ((ServiceCallResult) -> Unit)?) {
+    var onRelease: (List<ICommonData>.()->Unit)? = null
+
+    override fun init(onSubmitResult: ((ServiceCallResult) -> Unit)?) {
         onResultsSubmit = onSubmitResult
     }
-    override fun <L> addToBuffer(dataItems: List<L>) {
 
+    fun releaseFromBuffer(){
+        if(dataBuffer.isNotEmpty()){
+            val dataBufferItem = dataBuffer.removeAt(dataBuffer.size - 1)
+            val list = dataBufferItem.dataContainer.dataList as List<ICommonData>
+            onRelease?.invoke(list)
+        }
     }
-    override suspend fun <L, R> setData(
-        inputList: L?,
-        dataComplete: Boolean,
+
+    fun setRecipientBusyStatus(busy: Boolean) {
+        if(recipientBusy && !busy){
+            releaseFromBuffer()
+        }
+    }
+
+    override fun <T> addToBuffer(dataItems: List<T>, container: DataFlowContainerImpl) {
+        container.updateData(dataItems,DataSetType.COMPLETE,DataType.DATARECORD)
+        val bufferItem = DataBufferContainerImpl(System.currentTimeMillis(), container)
+        dataBuffer.add(bufferItem)
+    }
+
+    suspend fun <T> receiveData(
+        dataContainer: DataFlowContainerImpl,
         busy: Boolean,
         body: (DataDispatcherImpl.() -> Unit)?,
-        receiver: suspend R.() -> Unit
-    ): DataDispatcher {
-        val input = inputList
-        if (body != null) {
-            this.body()
-        }
+        receiver: DataDispatcherImpl.() -> List<T>
+    ) {
+        this.recipientBusy = busy
+        val itemList = receiver(this)
         if (busy) {
-            onBuffered?.invoke()
+            addToBuffer(itemList,dataContainer)
+            if (body != null) {
+                this.body()
+                onBuffered?.invoke()
+            }
+        } else {
+            if (body != null) {
+                this.body()
+                onRelease?.invoke(itemList as List<ICommonData>)
+            }
         }
-        return this
     }
+
     override suspend fun getData(
         dataCategory: DataCategory,
         body: (DataDispatcherImpl.() -> Unit)?,
@@ -101,11 +141,21 @@ class DataDispatcherImpl() : DataDispatcher, DataFlowMeasurable {
         return this
     }
 
-    fun getServiceTransferResult(callResult: DataServiceCallResult): ServiceCallResult {
+    override fun processTransferResult(callResult: DataServiceCallResult): ServiceCallResult {
         val result: ServiceCallResult = callResult
         if (onResultsSubmit != null){
             onResultsSubmit?.invoke(result)
         }
         return result
+    }
+
+    fun startJourney(container: DataFlowContainerImpl,route: DataDispatcherResult, measurement: IMeasurableCallResult?): DataFlowContainerImpl {
+        container.addRouteInformation(route)
+        if (measurement != null) {
+            container.addMeasurement(measurement)
+        } else {
+            val a = 10
+        }
+        return container
     }
 }

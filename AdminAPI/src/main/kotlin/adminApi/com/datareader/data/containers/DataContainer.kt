@@ -1,16 +1,12 @@
 package adminApi.com.datareader.data.containers
 
-import adminApi.com.common.dataflow.DataDispatcherImpl
-import adminApi.com.common.statistics.CallResultImpl
-import adminApi.com.common.statistics.DataCategory
-import adminApi.com.common.statistics.DataType
-import adminApi.com.common.statistics.ServiceCallResult
+import adminApi.com.common.dataflow.*
+import adminApi.com.common.statistics.*
+import adminApi.com.datareader.data.DataProvider
+import adminApi.com.datareader.data.DataProvider.MeterCompanion
 import adminApi.com.datareader.models.abstractions.DataModelClass
 import adminApi.com.general.models.data.ICommonData
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Delay
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.*
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.encodeToJsonElement
@@ -33,39 +29,66 @@ class AccessReleaseTimer(attempts: Int = 20, delay: Int = 5000){
     }
 }
 
-class ContainerResultImpl(
-    override val success: Boolean,
-    override val dataType: DataType,
-    override val dataList: List<*>,
-    override val count: Int,
-    override val errorCode: Int? = null,
-    override val errorMessage: String? = null,
-) : ServiceCallResult{
 
-}
+abstract class DataContainer<T:DataModelClass>(): DataFlowMeter {
 
-abstract class DataContainer<T:DataModelClass>(){
+    companion object MeterCompanion : DataFlowMeterCompanion {
+        override var parent: Any? = null
+        override var objectName: String = "Object Name"
+        override var module: ModuleName = ModuleName.DATAREADER
+        override var supplierName: String = ""
+        override val measurements: MutableList<IMeasurableCallResult> = mutableListOf()
 
-    val dataDispatcher: DataDispatcherImpl = DataDispatcherImpl()
+        override val onDispatcherResultsSubmitted = { result: ServiceCallResult -> this.registerMeasurement(result) }
+        override val onMeterResultsSubmitted: ((MeasurableCallResult) -> Unit)? =
+            { result: MeasurableCallResult -> this.registerMeasurement(result.operation, result.elapsedTime) }
 
-   abstract var supplierId:Int
-   abstract var containerType : ContainerType
-   private var busy = true
-       get() = field
-         set(value) {
-              field = value
-         }
-   private var completeDataUploadFromSupplier = false
-   private var initialUpdate = false
-   var mapping: HashMap<String,String>? = null
-   private val jsonItems : MutableList<JsonElement> = mutableListOf()
-   private val records : MutableList<T> = mutableListOf()
-   private var toSaveBuffer : MutableList<T> = mutableListOf()
-   var onDataForUpdated: ((List<T>)->Unit)? = null
-   var onDataForRemoval : ((List<T>)->Unit)? = null
+        override fun registerMeasurement(serviceCallResult: ServiceCallResult) {
+            if (serviceCallResult.success) {
+                val newRecord = MeasurableCallResultImpl(module, objectName)
+                newRecord.count = serviceCallResult.count
+                this.measurements.add(newRecord)
+            }
+        }
+
+        override fun registerMeasurement(operation: String, elapsedTime: Long) {
+            this.measurements.firstOrNull { it.operation == operation }?.elapsedTime = elapsedTime
+        }
+
+        fun getLastMeasurement(category: DataCategory): IMeasurableCallResult? {
+            val first = measurements.firstOrNull{it.unitName == category}
+            return first
+        }
+    }
+    private val dataDispatcher: DataDispatcherImpl = DataDispatcherImpl()
+
+    abstract var supplierId:Int
+    abstract var containerType : ContainerType
+    private var busy = false
+        set(value) {
+            if(field != value) {
+                field = value
+                dataDispatcher.setRecipientBusyStatus(field)
+            }
+
+        }
+    private var completeDataUploadFromSupplier = false
+    private var initialUpdate = false
+    var mapping: HashMap<String,String>? = null
+    private val jsonItems : MutableList<JsonElement> = mutableListOf()
+    private val records : MutableList<T> = mutableListOf()
+    private var toSaveBuffer : MutableList<T> = mutableListOf()
+    var onDataForUpdated: ((List<T>)->Unit)? = null
+    var onDataForRemoval : ((List<T>)->Unit)? = null
 
     abstract fun createDataItem(source:JsonElement, mapping: HashMap<String,String>? = null) : T
     abstract suspend fun supplyData(dataItems : List<ICommonData>):Boolean
+
+    var companion: DataFlowMeterCompanion = DataContainer.MeterCompanion
+    override fun initCompanion() {
+        companion.init("DataProvider", ModuleName.DATAREADER, "Action", this)
+        dataDispatcher.init(DataProvider.MeterCompanion.onDispatcherResultsSubmitted)
+    }
 
     private fun sendRedundantForRemoval(){
         if(this.completeDataUploadFromSupplier && !this.initialUpdate){
@@ -139,41 +162,31 @@ abstract class DataContainer<T:DataModelClass>(){
                 } else {
                     this.toSaveBuffer.add(existent)
                 }
-            }else{
+            } else {
                 this.records[index].fromDataManager = false
             }
         }
     }
 
-    suspend fun setDataFromSource(data: List<JsonElement>, dataComplete: Boolean = false) = dataDispatcher.setData<List<JsonElement>, DataContainer<T>>(data, dataComplete, this.busy, {
-        this.onBuffered = {
-            println("Buffered")
-        }
-        this.onBufferRelease = {
-            println("Released")
-        }
-    }) {
+    suspend fun setDataFromSource(dataContainer: DataFlowContainerImpl) = dataDispatcher.receiveData<T>(dataContainer, this.busy, {
+            this.onBuffered = {
+                println("Buffered")
+            }
+            this.onRelease = {
+                beforeUpdate()
+                forEach {
+                    addRecord((it as T))
+                }
+                afterUpdate()
+            }
+        }) {
 
-        beforeUpdate()
-       // this.completeDataUploadFromSupplier = dataComplete
-        this.jsonItems.clear()
-        this.jsonItems.addAll(data)
-        for(record in jsonItems){
-            val dataItem = this.createDataItem(record,mapping)
-            this.addRecord(dataItem)
+                 startMeasure<List<T>>("lol",FlowType.UPDATE,MeterCompanion.onMeterResultsSubmitted){
+                        val jasonList: List<JsonElement> = dataContainer.dataList.filterIsInstance<JsonElement>()
+                        val itemList = jasonList.map { createDataItem(it, mapping) }
+                        itemList
+                    }
         }
-        val result = ContainerResultImpl(true, DataType.JSON, listOf<T>(),0)
-        afterUpdate()
-//        var attemps = 20
-//        while (busy){
-//            delay(5000)
-//            attemps--
-//            if (attemps == 0){
-//                throw Exception("Data container is busy")
-//            }
-//        }
-
-   }
 
     suspend fun setData(data : List<T>, fromDataManager : Boolean = true ):Boolean{
 
@@ -186,9 +199,9 @@ abstract class DataContainer<T:DataModelClass>(){
             }
         }
         beforeUpdate()
-        data.forEach { item->
-            item.fromDataManager = fromDataManager
-            this.addRecord(item)
+        data.forEach {
+            it.fromDataManager = fromDataManager
+            this.addRecord(it)
         }
         afterUpdate()
         return true
