@@ -1,0 +1,9 @@
+{
+  "url": "localhost:5432/",
+  "database": {
+    "name":"default", "db": "estore_admin_db", "user": "postgres", "pwd": ""
+  },
+  "externalDatabase" : {
+    "db": "", "user": "", "pwd": ""
+  }
+}

@@ -2,6 +2,7 @@ package adminApi.com.scheduler
 
 import adminApi.com.database.DBManager
 import adminApi.com.general.classes.ExecutionResults
+import adminApi.com.general.models.data.SchedulerTaskData
 import adminApi.com.scheduler.models.LaunchRecord
 import adminApi.com.scheduler.models.ScheduleRecord
 import kotlinx.coroutines.*
@@ -18,8 +19,12 @@ class Scheduler(private val db:DBManager) {
 
     var active = false
     val schedule = mutableListOf<ScheduleRecord>()
-    val schedulerScope = CoroutineScope(Job())
     val launchRecords = mutableListOf<LaunchRecord>()
+
+    private val tasks  : List<SchedulerTaskData> = db.scheduleTaskService().getTasks()
+
+    val schedulerContext = Job() + Dispatchers.Default + CoroutineName("Scheduler Coroutine")
+    val schedulerScope = CoroutineScope(schedulerContext)
 
     fun LocalDateTime.Companion.now(): LocalDateTime {
         return Clock.System.now().toLocalDateTime(TimeZone.UTC)
@@ -62,11 +67,12 @@ class Scheduler(private val db:DBManager) {
     }
 
     init {
-        val records  =  db.updateScheduleService().select().map { ScheduleRecord(it)   }
-        records.forEach{
-            bindCallbacks(it)
-            schedule.add(it)
-        }
+
+//        val records  =  db.updateScheduleService().select().map { ScheduleRecord(it)   }
+//        records.forEach{
+//            bindCallbacks(it)
+//            schedule.add(it)
+//        }
     }
 
     fun registerLaunchFn(supplierId: Int, containerName:String, fn : ()-> SharedFlow<ExecutionResults>) {
@@ -84,10 +90,11 @@ class Scheduler(private val db:DBManager) {
         active = true
         schedulerScope.launch {
             while(active){
-                schedule.forEach {
-                    it.check()
-                }
-                delay(50000)
+
+
+
+                //launch once every 30 minutes
+                delay(18000000)
             }
         }
     }

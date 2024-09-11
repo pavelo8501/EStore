@@ -5,7 +5,9 @@ import adminApi.com.general.models.data.ICommonData
 import adminApi.com.general.models.data.ProducerData
 import kotlinx.datetime.Clock
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import kotlinx.datetime.todayIn
 import org.jetbrains.exposed.dao.IntEntity
 import org.jetbrains.exposed.dao.IntEntityClass
@@ -20,14 +22,13 @@ abstract class DBEntity(id: EntityID<Int>) :IntEntity(id) {
     abstract var supplierId : Int
     // id as provided by the data provider (i.e Supplier)
     abstract var providerId : String
-    abstract var markedForRemovalAt : LocalDate?
+    abstract var markedForRemovalAt : LocalDateTime?
     var markedForRemoval : Boolean
         get() = markedForRemovalAt != null
         set(value) {
             if(value){
                 if(markedForRemovalAt == null){
-                    val now: LocalDate = Clock.System.todayIn(TimeZone.UTC)
-                    markedForRemovalAt = now
+                    markedForRemovalAt = Clock.System.now().toLocalDateTime(TimeZone.UTC)
                 }
             }
         }

@@ -11,12 +11,15 @@ import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.dao.id.IntIdTable
 import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.exists
 import org.jetbrains.exposed.sql.kotlin.datetime.date
+import org.jetbrains.exposed.sql.kotlin.datetime.datetime
 
 
 object Products : IntIdTable("products", "id") {
     val supplierId = integer("supplier_id")
-    val markedForRemovalAt = date("marked_for_removal_at").nullable()
+    val markedForRemovalAt = datetime("marked_for_removal_at").nullable()
     val providerId = varchar("providerId",64)
     val producerId = varchar("producerId",32)
     val producerCode = varchar("producerCode",64)
@@ -94,6 +97,14 @@ class ProductEntity(id: EntityID<Int>) :DBEntity(id) {
 }
 
 class ProductService(val db: Database) : DatabaseService(db, ProductEntity)  {
+
+    init {
+        dbQuery{
+            if(!Products.exists()){
+                SchemaUtils.create(Products)
+            }
+        }
+    }
 
     override fun create(data: ICommonData): DBEntity {
         val  product = data as ProductData

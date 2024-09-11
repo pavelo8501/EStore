@@ -11,7 +11,9 @@ import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.dao.id.IntIdTable
 import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.exists
 import org.jetbrains.exposed.sql.kotlin.datetime.datetime
 import org.jetbrains.exposed.sql.transactions.transaction
 
@@ -32,6 +34,14 @@ class UpdateScheduleEntity(id: EntityID<Int>) : IntEntity(id) {
 }
 
 class UpdateScheduleService(val db: Database)  {
+
+    init {
+        dbQuery{
+            if(!UpdateScheduleSettings.exists()){
+                SchemaUtils.create(UpdateScheduleSettings)
+            }
+        }
+    }
 
     fun select(): List<UpdateScheduleEntity>{
         return  dbQuery{

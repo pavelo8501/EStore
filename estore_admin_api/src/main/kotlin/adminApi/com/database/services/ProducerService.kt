@@ -8,6 +8,8 @@ import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.dao.id.IntIdTable
 import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.exists
 import org.jetbrains.exposed.sql.kotlin.datetime.date
 import org.jetbrains.exposed.sql.kotlin.datetime.datetime
 
@@ -42,6 +44,15 @@ class ProducerEntity(id: EntityID<Int>) :DBEntity(id) {
 }
 
 class ProducerService(val db: Database) : DatabaseService(db, ProducerEntity)  {
+
+
+    init {
+        dbQuery{
+            if(!Producers.exists()){
+                SchemaUtils.create(Producers)
+            }
+        }
+    }
 
     override fun create(data: ICommonData): DBEntity {
         val  producer = data as ProducerData

@@ -45,6 +45,7 @@ dependencies {
     implementation("org.jetbrains.exposed:exposed-kotlin-datetime:$exposed_version")
     implementation("com.zaxxer:HikariCP:$hikari_version")
     implementation("mysql:mysql-connector-java:$mysql_version")
+
     implementation("org.postgresql:postgresql:$postgres_version")
 
 

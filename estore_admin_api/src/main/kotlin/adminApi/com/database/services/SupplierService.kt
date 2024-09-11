@@ -8,6 +8,8 @@ import org.jetbrains.exposed.dao.IntEntityClass
 import org.jetbrains.exposed.dao.id.EntityID
 import org.jetbrains.exposed.dao.id.IntIdTable
 import org.jetbrains.exposed.sql.Database
+import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.exists
 import org.jetbrains.exposed.sql.kotlin.datetime.date
 
 object Suppliers : IntIdTable("suppliers", "supplier_id") {
@@ -22,6 +24,15 @@ class SupplierEntity(supplier_id: EntityID<Int>) : IntEntity(supplier_id) {
 }
 
 class SupplierService(val db: Database) : DatabaseService(db, SupplierEntity)  {
+
+    init {
+        dbQuery{
+            if(!Suppliers.exists()){
+                SchemaUtils.create(Suppliers)
+            }
+        }
+    }
+
     override fun create(data: ICommonData): DBEntity {
         TODO("Not yet implemented")
     }

@@ -12,7 +12,8 @@ import org.jetbrains.exposed.sql.transactions.transaction
 class DBManager(url:String, user:String, password:String, driver:String? = null) {
 
     var connected :Boolean = false
-    var defaultDriver = "com.mysql.cj.jdbc.Driver"
+   // var defaultDriver = "com.mysql.cj.jdbc.Driver"
+    var defaultDriver = "org.postgresql.Driver"
     private val connections = hashMapOf<String,Database>()
 
     var updateScheduleService : UpdateScheduleService? = null
@@ -23,12 +24,14 @@ class DBManager(url:String, user:String, password:String, driver:String? = null)
         if(driver != null) {
             this.defaultDriver =  driver
         }
-        connect("default", url, user, password, "com.mysql.cj.jdbc.Driver")
+        connect("default", url, user, password, defaultDriver)
+       // connect("default", url, user, password, "com.mysql.cj.jdbc.Driver")
     }
 
     private fun connect(name:String, url:String, user:String,  password:String, driver:String){
         try{
-            val jdbcURL = "jdbc:mysql://$url?user=$user&password=$password"
+          //  val jdbcURL = "jdbc:mysql://$url?user=$user&password=$password"
+            val jdbcURL = "jdbc:postgresql://$url?user=$user&password=$password"
             val databaseConnection = Database.connect(provideDataSource(jdbcURL,driver))
             connections[name] = databaseConnection
 
@@ -40,6 +43,8 @@ class DBManager(url:String, user:String, password:String, driver:String? = null)
             addService("CategoryService",name,categoryService)
             val productService = ProductService(databaseConnection)
             addService("ProductService",name,productService)
+            val scheduleTaskService = SchedulerTaskService(databaseConnection)
+            addService("ScheduleTaskService",name,scheduleTaskService)
 
             this.updateScheduleService = UpdateScheduleService(databaseConnection)
 
@@ -74,10 +79,19 @@ class DBManager(url:String, user:String, password:String, driver:String? = null)
     }
 
     fun updateScheduleService() : UpdateScheduleService{
-        if(updateScheduleService == null){
-            throw Exception("UpdateScheduleService not initialized")
-        }else{
+        if(services.containsKey("ScheduleTaskService")){
             return this.updateScheduleService!!
+        }else{
+            throw Exception("UpdateScheduleService not initialized")
+        }
+    }
+
+    fun scheduleTaskService() : SchedulerTaskService{
+        if(services.containsKey("SchedulerTaskService")){
+            val container = services["SchedulerTaskService"]
+            return container?.service as SchedulerTaskService
+        }else{
+            throw Exception("UpdateScheduleService not initialized")
         }
     }
 
