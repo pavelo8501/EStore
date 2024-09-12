@@ -1,6 +1,10 @@
 package adminApi.com.plugins
 
 import adminApi.com.database.DBManager
+import adminApi.com.datareader.data.DataProvider
+import adminApi.com.datareader.data.ProviderManager
+import adminApi.com.datareader.services.DataService
+import adminApi.com.general.DataManager
 import adminApi.com.models.Configuration
 import io.ktor.server.application.*
 import io.ktor.server.response.respondText
@@ -27,11 +31,20 @@ fun Application.configureKoin() {
     try {
         val dbManager = org.koin.dsl.module {
             single { DBManager("${config.url}${config.database.db}",config.database.user,config.database.pwd) }
-            // single { DBManager("localhost:5432/estore_admin_db","postgres","Zse45rdX") }
+        }
+
+        val dataManager = org.koin.dsl.module {
+            single { DataManager() }
+        }
+
+        val providerManager  = org.koin.dsl.module {
+            single { ProviderManager()}
         }
 
         install(Koin) {
             modules(dbManager)
+            modules(dataManager)
+            modules(providerManager)
         }
     } catch (e: Exception) {
         throw Exception("Error while configuring Koin: ${e.message}")

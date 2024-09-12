@@ -11,8 +11,11 @@ import adminApi.com.general.models.SupplierElement
 import adminApi.com.general.models.data.CategoryData
 import adminApi.com.general.models.data.ProducerData
 import adminApi.com.general.models.data.ProductData
+import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -30,26 +33,28 @@ data class DataManagerMessage<T>(
     val listType:DataListType
 )
 
-class DataManager(val db : DBManager) {
+class DataManager() {
     companion object DataManagerConnector{
-        fun sendProducerUpdate(id : Int, items :List<ProducerData>){
-            producerSubject.value =  DataManagerMessage(id,"producers", items, DataListType.UPDATE)
+
+        val producerSubject = MutableSharedFlow<DataManagerMessage<ProducerData>?>()
+        suspend fun sendProducerUpdate(id : Int, items :List<ProducerData>){
+            producerSubject.emit(DataManagerMessage(id,"producers", items, DataListType.UPDATE))
         }
 
-        fun sendCategoryUpdate(id : Int, items :List<CategoryData>){
-            categorySubject.value =  DataManagerMessage(id,"categories", items, DataListType.UPDATE)
+        val categorySubject = MutableSharedFlow<DataManagerMessage<CategoryData>?>()
+        suspend fun sendCategoryUpdate(id : Int, items :List<CategoryData>){
+            categorySubject.emit(DataManagerMessage(id,"categories", items, DataListType.UPDATE))
         }
 
-        fun sendProductUpdate(id : Int, items :List<ProductData>){
-            productSubject.value =  DataManagerMessage(id,"categories", items, DataListType.UPDATE)
+        val productSubject = MutableSharedFlow<DataManagerMessage<ProductData>?>()
+        suspend fun sendProductUpdate(id : Int, items :List<ProductData>){
+            productSubject.emit(DataManagerMessage(id,"categories", items, DataListType.UPDATE))
         }
-
-        val producerSubject = MutableStateFlow<DataManagerMessage<ProducerData>?>(null)
-        val categorySubject = MutableStateFlow<DataManagerMessage<CategoryData>?>(null)
-        val productSubject = MutableStateFlow<DataManagerMessage<ProductData>?>(null)
     }
 
-    val dataManagerScope = CoroutineScope(Dispatchers.Default)
+    var db : DBManager? = null
+
+    val dataManagerScope = CoroutineScope(Job() + Dispatchers.Default + CoroutineName("Data Manager Coroutine"))
 
     private val listener = DataManagerListener(this)
 
@@ -61,38 +66,60 @@ class DataManager(val db : DBManager) {
         return supplierList.toList()
     }
     fun loadSuppliers(callback: ((List<SupplierElement>) -> Unit?)? = null){
-        val result =  db.suppliersService().select<SupplierEntity>()
-        for (entity in result) {
-            try {
-                val  supplier =  SupplierElement(entity)
-                this.supplierList.add(supplier)
-            }catch (e:Exception){
-                println(e.message)
-            }
+        if(db == null){
+            return
         }
-        callback?.invoke(getSuppliers())
+
+        if(this.supplierList.isNotEmpty() && callback != null){
+            callback.invoke(getSuppliers())
+        }else{
+            db!!.suppliersService().select<SupplierEntity>().forEach {
+                try {
+                    val  supplier =  SupplierElement(it)
+                    this.supplierList.add(supplier)
+                }catch (e:Exception){
+                    println(e.message)
+                }
+            }
+            callback?.invoke(getSuppliers())
+        }
     }
 
-    init {
+
+    var producerContainer : ProducersContainer? = null
+    var categoryContainer : CategoryContainer? = null
+    var productContainer : ProductContainer? = null
+
+    fun init(db : DBManager) {
+
+        this.db = db
         loadSuppliers()
         this.listener.onStart()
-    }
 
-    val producerContainer = ProducersContainer(getSuppliers(), db)
-    val categoryContainer = CategoryContainer(getSuppliers(),db)
-    val productContainer = ProductContainer(getSuppliers(),db)
-
-    fun init() {
-        producerContainer.onSendDataToReader = { update ->  sendProducerUpdate(update.supplierId,update.records) }
-        categoryContainer.onSendDataToReader = { update ->
-            sendCategoryUpdate(update.supplierId,update.records)
+        producerContainer = ProducersContainer(getSuppliers(), db)
+        producerContainer!!.onSendDataToReader = { update ->
+            dataManagerScope.launch {
+                sendProducerUpdate(update.supplierId, update.records)
+            }
         }
-        productContainer.onSendDataToReader = { update ->  sendProductUpdate(update.supplierId, update.records)  }
+
+        categoryContainer = CategoryContainer(getSuppliers(),db)
+        categoryContainer!!.onSendDataToReader = { update ->
+            dataManagerScope.launch {
+                sendCategoryUpdate(update.supplierId,update.records)
+            }
+        }
+        productContainer = ProductContainer(getSuppliers(),db)
+        productContainer!!.onSendDataToReader = { update ->
+            dataManagerScope.launch {
+                sendProductUpdate(update.supplierId, update.records)
+            }
+        }
 
         runBlocking {
-            producerContainer.init()
-            categoryContainer.init()
-            productContainer.init()
+            producerContainer!!.init()
+            categoryContainer!!.init()
+            productContainer!!.init()
         }
         onDataLoaded?.invoke()
     }

@@ -42,25 +42,25 @@ interface DataFlowMeterCompanion {
 }
 
 interface DataFlowMeasurable {
-    suspend fun <T> startMeasureSuspended(
+    suspend  fun <T> startMeasureSuspended(
         operationName: String,
         flowType: FlowType,
         onResult: ((MeasurableCallResult) -> Unit)?,
-        block: suspend (T) -> Unit
+        block: suspend () -> T
     ): T {
         val measurement = MeasurableCallResult(operationName, flowType)
         measurement.start()
-        block(this as T)
+        val result = block.invoke()
         measurement.stop()
         onResult?.invoke(measurement)
-        return (this as T)
+        return result
     }
 
     fun <T> startMeasure(
     operationName: String,
     flowType: FlowType,
     onResult: ((MeasurableCallResult) -> Unit)?,
-    block:  T.() -> Unit
+    block:  (T) -> Unit
     ): T {
         val measurement = MeasurableCallResult(operationName, flowType)
         measurement.start()

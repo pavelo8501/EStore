@@ -10,7 +10,7 @@ import org.koin.core.definition.Callbacks
 import javax.security.auth.callback.Callback
 
 
-interface DataDispatcherResult {
+interface DataDispatcherRecord {
     val sender: String
     val recipient: String
     val count: Int
@@ -24,7 +24,7 @@ interface DataBufferContainer {
 interface DataDispatcher {
     val dataBuffer: MutableList<DataBufferContainer>
     var onResultsSubmit : ((ServiceCallResult) -> Unit)?
-    var onDataReceived: (DataDispatcherResult) -> Unit
+    var onDataReceived: (DataDispatcherRecord) -> Unit
     var onDataBeforeDispatch: (() -> Unit)?
     var onException: ((Exception) -> Unit)?
     var onDataAfterDispatch: ((CallResult) -> Unit)?
@@ -53,24 +53,24 @@ data class DataBufferContainerImpl(
     override val dataContainer: DataFlowContainer,
 ):DataBufferContainer{}
 
-data class DataDispatcherResultImpl(
+data class DataDispatcherMarker(
     override val sender: String,
     override val recipient: String,
     override val count: Int
-) : DataDispatcherResult
+) : DataDispatcherRecord
 
 class DataDispatcherImpl() : DataDispatcher, DataFlowMeasurable {
     override val dataBuffer: MutableList<DataBufferContainer> = mutableListOf()
     var recipientBusy: Boolean = false
     override var onResultsSubmit: ((ServiceCallResult) -> Unit)? = null
-    override var onDataReceived: (DataDispatcherResult) -> Unit = {}
+    override var onDataReceived: (DataDispatcherRecord) -> Unit = {}
     override var onDataBeforeDispatch: (() -> Unit)? = null
     override var onDataAfterDispatch: ((CallResult) -> Unit)? = null
     override var onDataDispatchComplete: (() -> Unit)? = null
     override var onException: ((Exception) -> Unit)? = null
     override var onBuffered: (() -> Unit)? = null
 
-    var onRelease: (List<ICommonData>.()->Unit)? = null
+    var onRelease: ((List<ICommonData>)->Unit)? = null
 
     override fun init(onSubmitResult: ((ServiceCallResult) -> Unit)?) {
         onResultsSubmit = onSubmitResult
@@ -99,7 +99,7 @@ class DataDispatcherImpl() : DataDispatcher, DataFlowMeasurable {
     suspend fun <T> receiveData(
         dataContainer: DataFlowContainerImpl,
         busy: Boolean,
-        body: (DataDispatcherImpl.() -> Unit)?,
+        body: ((DataDispatcherImpl) -> Unit)?,
         receiver: DataDispatcherImpl.() -> List<T>
     ) {
         this.recipientBusy = busy
@@ -107,12 +107,10 @@ class DataDispatcherImpl() : DataDispatcher, DataFlowMeasurable {
         if (busy) {
             addToBuffer(itemList,dataContainer)
             if (body != null) {
-                this.body()
                 onBuffered?.invoke()
             }
         } else {
             if (body != null) {
-                this.body()
                 onRelease?.invoke(itemList as List<ICommonData>)
             }
         }
@@ -149,7 +147,7 @@ class DataDispatcherImpl() : DataDispatcher, DataFlowMeasurable {
         return result
     }
 
-    fun startJourney(container: DataFlowContainerImpl,route: DataDispatcherResult, measurement: IMeasurableCallResult?): DataFlowContainerImpl {
+    fun startJourney(container: DataFlowContainerImpl,route: DataDispatcherRecord, measurement: IMeasurableCallResult?): DataFlowContainerImpl {
         container.addRouteInformation(route)
         if (measurement != null) {
             container.addMeasurement(measurement)

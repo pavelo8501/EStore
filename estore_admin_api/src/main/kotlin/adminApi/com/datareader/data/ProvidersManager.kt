@@ -1,7 +1,6 @@
 package adminApi.com.datareader.data
 
-import adminApi.com.common.dataflow.DataDispatcherResultImpl
-import adminApi.com.database.services.SupplierEntity
+import adminApi.com.common.dataflow.DataDispatcherMarker
 import adminApi.com.datareader.classes.ProviderDataListener
 import adminApi.com.datareader.connectors.ActionConnector
 import adminApi.com.datareader.connectors.Connector
@@ -12,6 +11,7 @@ import adminApi.com.general.models.SupplierElement
 import adminApi.com.general.models.data.CategoryData
 import adminApi.com.general.models.data.ProducerData
 import adminApi.com.general.models.data.ProductData
+import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -82,7 +82,7 @@ class ProviderManager() {
     }
 
    // private val coroutineContext = Job()
-    val providerManagerScope = CoroutineScope(Dispatchers.IO)
+    val providerManagerScope = CoroutineScope(Job() + Dispatchers.IO + CoroutineName("Provider Manager Coroutine"))
 
     private val dataProviders : MutableMap<String,DataProvider> = mutableMapOf()
 
@@ -123,52 +123,40 @@ class ProviderManager() {
         }
         return null
     }
-    fun getProvider(id:Int):DataProvider?{
+    fun getDataProvider(id:Int):DataProvider?{
        return this.dataProviders.entries.firstOrNull{it.value.supplierId == id}?.value
     }
 
-    fun getCategories(providerName: String) {
-        providerManagerScope.launch {
-            getDataProvider(providerName)?.getCategories(DataDispatcherResultImpl("Temp","Container",0))
+    private var categoriesSubject =  MutableSharedFlow<ExecutionResults>()
+    fun updateCategories(providerId: Int, marker : DataDispatcherMarker? = null): SharedFlow<ExecutionResults>{
+        getDataProvider(providerId)?.let {
+            providerManagerScope.launch {
+                it.updateCategories(marker?:DataDispatcherMarker("Temp","Container",0))
+                categoriesSubject.emit(ExecutionResults(it.supplierId,"products"))
+            }
         }
+        return categoriesSubject
     }
 
     private var producersSubject =  MutableSharedFlow<ExecutionResults>()
-    fun getProducers(providerName: String? = null): SharedFlow<ExecutionResults> {
-        if (providerName == null) {
-            for (provider in dataProviders.values) {
-                providerManagerScope.launch {
-                    provider.getProducers(DataDispatcherResultImpl("Temp","Container",0))
-                }
-            }
-        }else{
+    fun updateProducers(supplierId: Int, marker : DataDispatcherMarker? = null): SharedFlow<ExecutionResults> {
+        getDataProvider(supplierId)?.let {
             providerManagerScope.launch {
-                getDataProvider(providerName)?.getProducers(DataDispatcherResultImpl("Temp","Container",0))
+                it.updateProducers(marker?:DataDispatcherMarker("Temp","Container",0))
+                producersSubject.emit(ExecutionResults(it.supplierId,"producers"))
             }
         }
         return producersSubject
     }
 
     private var productsSubject =  MutableSharedFlow<ExecutionResults>()
-    fun getProducts(providerName: String? = null) : SharedFlow<ExecutionResults> {
-        if (providerName == null) {
-            for (provider in dataProviders.values) {
-                providerManagerScope.launch {
-                    provider.getProducts(DataDispatcherResultImpl("Temp","Container",0))
-                    productsSubject.emit(ExecutionResults(1,"test"))
-                }
+    fun updateProducts(supplierId: Int, marker : DataDispatcherMarker? = null) : SharedFlow<ExecutionResults> {
+        getDataProvider(supplierId)?.let {
+            providerManagerScope.launch {
+                it.updateProducts(marker?:DataDispatcherMarker("Temp","Container",0))
+                productsSubject.emit(ExecutionResults(it.supplierId,"products"))
             }
-        }else{
-            val a  = 10
-            getDataProvider(providerName)?.let {
-                providerManagerScope.launch {
-                    it.getProducts(DataDispatcherResultImpl("Temp","Container",0))
-                    productsSubject.emit(ExecutionResults(it.supplierId,"products"))
-                }
-            }
-            val b =10
         }
-        val a = 10
         return productsSubject
     }
 

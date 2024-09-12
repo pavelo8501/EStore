@@ -153,11 +153,12 @@ abstract class BaseContainer<T:ElementClass, D:ICommonData>(val suppliers : List
             this.recordsUpdated = true
             val recordsBySupplier = this.dataRecordBuffer.groupBy { it.supplierId }
             if(recordsBySupplier.isNotEmpty()) {
-                recordsBySupplier.forEach { (supplierId, records) ->  onSendDataToReader?.invoke(DataContainerUpdate(supplierId,records)) }
+                recordsBySupplier.forEach { (supplierId, records) -> if(records.isNotEmpty()){ onSendDataToReader?.invoke(DataContainerUpdate(supplierId,records)) } }
                 this.dataRecordBuffer.clear()
-            }else{
-                suppliers.forEach { supplier ->onSendDataToReader?.invoke(DataContainerUpdate(supplier.supplierId, mutableListOf()))  }
             }
+//            else{
+//                suppliers.forEach { supplier ->   onSendDataToReader?.invoke(DataContainerUpdate(supplier.supplierId, mutableListOf()))  }
+//            }
         }catch (ex : Exception){
             this.recordsUpdated = false
             throw Exception("Could not process records from database")

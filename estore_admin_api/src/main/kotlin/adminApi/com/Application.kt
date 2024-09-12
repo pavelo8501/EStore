@@ -23,25 +23,12 @@ fun startDataReader(){
 
 fun start() {
 
-  // val db = DBManager("localhost:5432/estore_admin_db","postgres","Zse45rdX")
 
-//   val dataManager = DataManager(db)
 //   val providerManager = ProviderManager()
 //   dataManager.loadSuppliers { suppliers ->
 //      providerManager.initProvidersFromSupplierList(suppliers)
 //   }
 //
-//    val scheduler  = Scheduler(db)
-//    scheduler.registerLaunchFn(1,"producer") {
-//        providerManager.getProducers("action")
-//    }
-//    scheduler.registerLaunchFn(1,"producer") {
-//        providerManager.getProducers("action")
-//    }
-//    scheduler.registerLaunchFn(1,"category") {
-//        providerManager.getCategories("action")
-//    }
-
 //   dataManager.onDataLoaded = {
 //       scheduler.start()
 //   }
@@ -55,7 +42,7 @@ fun Application.module() {
     configureSecurity()
     configureRouting()
     configureKoin()
-    configScheduler()
+    configSystem()
    // start()
     //test()
 }

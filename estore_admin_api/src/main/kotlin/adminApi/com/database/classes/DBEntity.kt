@@ -22,13 +22,13 @@ abstract class DBEntity(id: EntityID<Int>) :IntEntity(id) {
     abstract var supplierId : Int
     // id as provided by the data provider (i.e Supplier)
     abstract var providerId : String
-    abstract var markedForRemovalAt : LocalDateTime?
+    abstract var markedForRemovalAt : LocalDate?
     var markedForRemoval : Boolean
         get() = markedForRemovalAt != null
         set(value) {
             if(value){
                 if(markedForRemovalAt == null){
-                    markedForRemovalAt = Clock.System.now().toLocalDateTime(TimeZone.UTC)
+                    markedForRemovalAt = LocalDate.Companion.parse(Clock.System.now().toLocalDateTime(TimeZone.UTC).toString())
                 }
             }
         }

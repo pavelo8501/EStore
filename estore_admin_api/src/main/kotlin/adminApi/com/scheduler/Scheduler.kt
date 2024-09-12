@@ -1,88 +1,71 @@
 package adminApi.com.scheduler
 
+import adminApi.com.common.dataflow.DataDispatcherMarker
 import adminApi.com.database.DBManager
+import adminApi.com.datareader.data.ProviderManager
 import adminApi.com.general.classes.ExecutionResults
-import adminApi.com.general.models.data.SchedulerTaskData
 import adminApi.com.scheduler.models.LaunchRecord
-import adminApi.com.scheduler.models.ScheduleRecord
+import adminApi.com.scheduler.models.SchedulerTask
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.datetime.Clock
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.minus
+import kotlinx.datetime.toJavaLocalDateTime
 import kotlinx.datetime.toLocalDateTime
 
 class Scheduler(private val db:DBManager) {
 
     var active = false
-    val schedule = mutableListOf<ScheduleRecord>()
     val launchRecords = mutableListOf<LaunchRecord>()
+    private val tasks  : List<SchedulerTask> = db.schedulerTaskService().getTaskList()
 
-    private val tasks  : List<SchedulerTaskData> = db.scheduleTaskService().getTasks()
-
-    val schedulerContext = Job() + Dispatchers.Default + CoroutineName("Scheduler Coroutine")
-    val schedulerScope = CoroutineScope(schedulerContext)
+    private val schedulerContext = Job() + Dispatchers.Default + CoroutineName("Scheduler Coroutine")
+    private val schedulerScope = CoroutineScope(schedulerContext)
 
     fun LocalDateTime.Companion.now(): LocalDateTime {
         return Clock.System.now().toLocalDateTime(TimeZone.UTC)
     }
 
-    private fun registerStart(record: ScheduleRecord){
-        db.updateScheduleService().dbQuery {
-            record.lastUpdate = LocalDateTime.now()
+    fun registerLaunchFn(supplierId: Int, taskName:String, fn : (Int, DataDispatcherMarker)-> SharedFlow<ExecutionResults>) {
+       launchRecords.add(LaunchRecord(supplierId, taskName.lowercase(), fn))
+    }
+
+    suspend fun updateTask(containerName: String, supplierId: Int){
+
+        when(containerName){
+            "products" -> {
+
+                launchRecords.find { it.containerName == "producers" }?.let {
+                    it.fn.invoke(supplierId, DataDispatcherMarker("Scheduler","Container",0)).onCompletion {
+                        val a = it
+                    }
+                }
+
+            }
         }
     }
-    private fun registerFinish(){
 
-    }
-
-    private suspend fun  startUpdate(record: ScheduleRecord) {
-
-        if(record.launchFn != null){
-            registerStart(record)
-            record.launchFn!!.invoke().also {
-                it.onCompletion {
-                    val onCompletion = true
-                }.collect{
-                    registerFinish()
+    suspend fun launchTasks(){
+        tasks.forEach {
+            val nowTime = LocalDateTime.Companion.parse(Clock.System.now().toLocalDateTime(TimeZone.UTC).toString())
+            if(it.lastUpdateAt == null || it.lastUpdateAt!!.toJavaLocalDateTime().isAfter(nowTime.toJavaLocalDateTime())  ){
+                val taskSplit = it.task.split("_")
+                if(taskSplit.size == 2){
+                    val task = taskSplit[0].trim().lowercase()
+                    val param = taskSplit[1].trim().lowercase()
+                    when(task){
+                        "update" -> {
+                            updateTask(param, it.supplierId)
+                        }
+                    }
                 }
             }
-        }
-    }
-
-    private fun bindCallbacks(record: ScheduleRecord){
-        val launchRecord = launchRecords.find { launchRecord -> launchRecord.supplierId == record.supplierId && launchRecord.containerName == record.containerName }
-        if (launchRecord != null){
-            record.launchFn = launchRecord.fn
-        }
-
-        record.onUpdate = { supplierId, containerName ->
-            schedulerScope.launch {
-                startUpdate(record)
-            }
-        }
-    }
-
-    init {
-
-//        val records  =  db.updateScheduleService().select().map { ScheduleRecord(it)   }
-//        records.forEach{
-//            bindCallbacks(it)
-//            schedule.add(it)
-//        }
-    }
-
-    fun registerLaunchFn(supplierId: Int, containerName:String, fn : ()-> SharedFlow<ExecutionResults>) {
-       launchRecords.add(LaunchRecord(supplierId, containerName.lowercase(), fn))
-       val scheduleRecord = schedule.find { it.supplierId == supplierId && it.containerName == containerName.lowercase() }
-       if (scheduleRecord != null){
-           scheduleRecord.launchFn = fn
-       }
-        fn().onCompletion {
-            val a =  it
         }
     }
 
@@ -90,9 +73,7 @@ class Scheduler(private val db:DBManager) {
         active = true
         schedulerScope.launch {
             while(active){
-
-
-
+                launchTasks()
                 //launch once every 30 minutes
                 delay(18000000)
             }

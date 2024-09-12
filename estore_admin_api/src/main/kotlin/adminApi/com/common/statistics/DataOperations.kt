@@ -1,6 +1,7 @@
 package adminApi.com.common.statistics
 
-import adminApi.com.common.dataflow.DataDispatcherResult
+import adminApi.com.common.dataflow.DataDispatcherMarker
+import adminApi.com.common.dataflow.DataDispatcherRecord
 import kotlinx.datetime.Clock
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
@@ -101,7 +102,7 @@ interface DataFlowContainer {
     val dataList: List<*>
     val dataSetType: DataSetType
     val dataType: DataType
-    val routesLog: List<DataDispatcherResult>
+    val routesLog: List<DataDispatcherRecord>
     val measurementLog: List<IMeasurableCallResult>
 }
 
@@ -110,7 +111,7 @@ class DataFlowContainerImpl(
     override var dataList: List<*> = listOf<Any>()
     override var dataType: DataType = DataType.JSON
     override var dataSetType: DataSetType = DataSetType.COMPLETE
-    override val routesLog: MutableList<DataDispatcherResult> = mutableListOf()
+    override val routesLog: MutableList<DataDispatcherRecord> = mutableListOf()
     override val measurementLog: MutableList<IMeasurableCallResult> = mutableListOf()
 
     fun init(container: DataFlowContainer) {
@@ -125,7 +126,7 @@ class DataFlowContainerImpl(
         this.dataType = dataType
     }
 
-    fun addRouteInformation(route: DataDispatcherResult) {
+    fun addRouteInformation(route: DataDispatcherRecord) {
         this.routesLog.add(route)
     }
 

@@ -16,7 +16,7 @@ class DBManager(url:String, user:String, password:String, driver:String? = null)
     var defaultDriver = "org.postgresql.Driver"
     private val connections = hashMapOf<String,Database>()
 
-    var updateScheduleService : UpdateScheduleService? = null
+    var schedulerTaskService : SchedulerTaskService? = null
 
     val services : MutableMap<String,ServiceContainer<DatabaseService>> = mutableMapOf()
 
@@ -43,10 +43,8 @@ class DBManager(url:String, user:String, password:String, driver:String? = null)
             addService("CategoryService",name,categoryService)
             val productService = ProductService(databaseConnection)
             addService("ProductService",name,productService)
-            val scheduleTaskService = SchedulerTaskService(databaseConnection)
-            addService("ScheduleTaskService",name,scheduleTaskService)
 
-            this.updateScheduleService = UpdateScheduleService(databaseConnection)
+            this.schedulerTaskService = SchedulerTaskService(databaseConnection)
 
             connected = true
         }catch (e:Exception){
@@ -78,20 +76,13 @@ class DBManager(url:String, user:String, password:String, driver:String? = null)
         return container?.service as ProductService
     }
 
-    fun updateScheduleService() : UpdateScheduleService{
-        if(services.containsKey("ScheduleTaskService")){
-            return this.updateScheduleService!!
-        }else{
-            throw Exception("UpdateScheduleService not initialized")
-        }
-    }
 
-    fun scheduleTaskService() : SchedulerTaskService{
-        if(services.containsKey("SchedulerTaskService")){
-            val container = services["SchedulerTaskService"]
-            return container?.service as SchedulerTaskService
+
+    fun schedulerTaskService() : SchedulerTaskService{
+        if( this.schedulerTaskService != null){
+            return this.schedulerTaskService!!
         }else{
-            throw Exception("UpdateScheduleService not initialized")
+            throw Exception("SchedulerTaskService not initialized")
         }
     }
 

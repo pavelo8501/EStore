@@ -2,12 +2,14 @@ package adminApi.com.datareader.data
 
 import adminApi.com.common.dataflow.*
 import adminApi.com.common.statistics.*
+import adminApi.com.datareader.classes.DataServiceCallResult
 import adminApi.com.datareader.connectors.ActionConnector
 import adminApi.com.datareader.connectors.Connector
 import adminApi.com.datareader.data.containers.CategoryContainer
 import adminApi.com.datareader.data.containers.DataContainer
 import adminApi.com.datareader.data.containers.ProducerContainer
 import adminApi.com.datareader.data.containers.ProductContainer
+import adminApi.com.datareader.services.DataService
 import adminApi.com.datareader.services.JsonFileDataService
 
 data class ProviderUpdateParams(val providerId:Int, val containerName : String, val dataContainer : DataContainer<*>)
@@ -81,33 +83,44 @@ class DataProvider(val supplierId: Int, val name: String) : DataFlowMeter {
         // dataService = RestDataService<T>(connector)
     }
 
-    suspend fun getCategories(checkpoint: DataDispatcherResult) = dataDispatcher.getData(DataCategory.CATEGORY) {
-        startMeasureSuspended<DataDispatcherImpl>("getCategories", FlowType.RECEIVE, onMeterResultsSubmitted) {
+    suspend fun updateCategories(checkpoint: DataDispatcherMarker) = dataDispatcher.getData(DataCategory.CATEGORY) {
+        val categoriesReceived =  startMeasureSuspended<DataServiceCallResult>("getCategories", FlowType.RECEIVE, onMeterResultsSubmitted) {
             val dataReceived = dataService.executeCall("getCategories")
             processTransferResult(dataReceived)
+            dataReceived
         }
-        val dataReceived = dataService.executeCall("getCategories")
-        dataDispatcher.startJourney(dataReceived.dataContainer, checkpoint, getLastMeasurement(DataCategory.CATEGORY))
+        dataDispatcher.startJourney(categoriesReceived.dataContainer, checkpoint, getLastMeasurement(DataCategory.CATEGORY))
             .also { categories.setDataFromSource(it) }
     }
 
-    suspend fun getProducers(checkpoint: DataDispatcherResult) = dataDispatcher.getData(DataCategory.PRODUCER) {
-        startMeasureSuspended<DataDispatcherImpl>("getProducers", FlowType.RECEIVE, onMeterResultsSubmitted) {
-            val dataReceived = dataService.executeCall("getProducers")
-            processTransferResult(dataReceived)
+    suspend fun updateProducers(checkpoint: DataDispatcherMarker) = dataDispatcher.getData(DataCategory.PRODUCER) {
+
+        try {
+
+           val producersReceived =  startMeasureSuspended<DataServiceCallResult>("getProducers", FlowType.RECEIVE, onMeterResultsSubmitted) {
+                val dataReceived = dataService.executeCall("getProducers")
+                processTransferResult(dataReceived)
+                dataReceived
+            }
+            dataDispatcher.startJourney(
+                producersReceived.dataContainer,
+                checkpoint,
+                getLastMeasurement(DataCategory.PRODUCER)
+            )
+                .also { producers.setDataFromSource(it) }
+
+        }catch (e: Exception){
+            println("Error updating producers: ${e.message}")
         }
-        val dataReceived = dataService.executeCall("getProducers")
-        dataDispatcher.startJourney(dataReceived.dataContainer, checkpoint, getLastMeasurement(DataCategory.PRODUCER))
-            .also { producers.setDataFromSource(it) }
     }
 
-    suspend fun getProducts(checkpoint: DataDispatcherResult) = dataDispatcher.getData(DataCategory.PRODUCT) {
-        startMeasureSuspended<DataDispatcherImpl>("getProducts", FlowType.RECEIVE, onMeterResultsSubmitted) {
+    suspend fun updateProducts(checkpoint: DataDispatcherMarker) = dataDispatcher.getData(DataCategory.PRODUCT) {
+       val productsReceived = startMeasureSuspended<DataServiceCallResult>("getProducts", FlowType.RECEIVE, onMeterResultsSubmitted) {
             val dataReceived = dataService.executeCall("getProducts")
             processTransferResult(dataReceived)
+            dataReceived
         }
-        val dataReceived = dataService.executeCall("getProducts")
-        dataDispatcher.startJourney(dataReceived.dataContainer, checkpoint, getLastMeasurement(DataCategory.PRODUCT))
+        dataDispatcher.startJourney(productsReceived.dataContainer, checkpoint, getLastMeasurement(DataCategory.PRODUCT))
             .also { products.setDataFromSource(it) }
     }
 }

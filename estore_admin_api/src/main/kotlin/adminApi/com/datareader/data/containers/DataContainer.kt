@@ -20,15 +20,6 @@ enum class ContainerType{
     CATEGORY
 }
 
-class AccessReleaseTimer(attempts: Int = 20, delay: Int = 5000){
-
-    val coroutine = CoroutineScope(Dispatchers.Default)
-
-    suspend fun <T> start(busy:Boolean, onCancel: T.()->Unit){
-
-    }
-}
-
 
 abstract class DataContainer<T:DataModelClass>(): DataFlowMeter {
 
@@ -169,23 +160,22 @@ abstract class DataContainer<T:DataModelClass>(): DataFlowMeter {
     }
 
     suspend fun setDataFromSource(dataContainer: DataFlowContainerImpl) = dataDispatcher.receiveData<T>(dataContainer, this.busy, {
-            this.onBuffered = {
-                println("Buffered")
-            }
-            this.onRelease = {
-                beforeUpdate()
-                forEach {
-                    addRecord((it as T))
-                }
-                afterUpdate()
-            }
-        }) {
+        it.onBuffered ={
+            println("Buffered")
+        }
 
-                 startMeasure<List<T>>("lol",FlowType.UPDATE,MeterCompanion.onMeterResultsSubmitted){
-                        val jasonList: List<JsonElement> = dataContainer.dataList.filterIsInstance<JsonElement>()
-                        val itemList = jasonList.map { createDataItem(it, mapping) }
-                        itemList
-                    }
+        it.onRelease = { data-> {
+            beforeUpdate()
+            data.forEach {
+                addRecord(it as T)
+            }
+            afterUpdate()
+        }}
+        }){
+              startMeasure<List<T>>("setDataFromSource",FlowType.UPDATE,MeterCompanion.onMeterResultsSubmitted){
+                    val jasonList: List<JsonElement> = dataContainer.dataList.filterIsInstance<JsonElement>()
+                    val itemList = jasonList.map { createDataItem(it, mapping) }
+                }
         }
 
     suspend fun setData(data : List<T>, fromDataManager : Boolean = true ):Boolean{

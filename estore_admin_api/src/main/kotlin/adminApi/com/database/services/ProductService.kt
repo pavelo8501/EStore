@@ -19,7 +19,7 @@ import org.jetbrains.exposed.sql.kotlin.datetime.datetime
 
 object Products : IntIdTable("products", "id") {
     val supplierId = integer("supplier_id")
-    val markedForRemovalAt = datetime("marked_for_removal_at").nullable()
+    val markedForRemovalAt = date("marked_for_removal_at").nullable()
     val providerId = varchar("providerId",64)
     val producerId = varchar("producerId",32)
     val producerCode = varchar("producerCode",64)

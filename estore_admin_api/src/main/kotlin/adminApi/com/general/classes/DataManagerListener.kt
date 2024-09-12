@@ -21,10 +21,10 @@ class DataManagerListener(val dataManager : DataManager) : CoroutineScope {
                 if (message != null) {
                     when(message.listType){
                         DataListType.UPDATE -> {
-                            dataManager.producerContainer.processDataFromDataProvider(message.supplierId, message.items)
+                            dataManager.producerContainer?.processDataFromDataProvider(message.supplierId, message.items)
                         }
                         DataListType.REMOVE -> {
-                            dataManager.producerContainer.processRemovalListFromDataProvider(message.supplierId, message.items)
+                            dataManager.producerContainer?.processRemovalListFromDataProvider(message.supplierId, message.items)
                         }
                     }
                 }
@@ -35,10 +35,10 @@ class DataManagerListener(val dataManager : DataManager) : CoroutineScope {
                 if (message != null) {
                     when(message.listType){
                         DataListType.UPDATE -> {
-                            dataManager.categoryContainer.processDataFromDataProvider(message.supplierId, message.items)
+                            dataManager.categoryContainer?.processDataFromDataProvider(message.supplierId, message.items)
                         }
                         DataListType.REMOVE -> {
-                            dataManager.categoryContainer.processRemovalListFromDataProvider(message.supplierId, message.items)
+                            dataManager.categoryContainer?.processRemovalListFromDataProvider(message.supplierId, message.items)
                         }
                     }
                 }
@@ -49,10 +49,10 @@ class DataManagerListener(val dataManager : DataManager) : CoroutineScope {
                 if (message != null) {
                     when(message.listType){
                         DataListType.UPDATE -> {
-                            dataManager.productContainer.processDataFromDataProvider(message.supplierId, message.items)
+                            dataManager.productContainer?.processDataFromDataProvider(message.supplierId, message.items)
                         }
                         DataListType.REMOVE -> {
-                            dataManager.productContainer.processRemovalListFromDataProvider(message.supplierId, message.items)
+                            dataManager.productContainer?.processRemovalListFromDataProvider(message.supplierId, message.items)
                         }
                     }
                 }

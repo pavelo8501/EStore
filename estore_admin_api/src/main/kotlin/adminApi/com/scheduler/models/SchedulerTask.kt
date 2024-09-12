@@ -1,19 +1,21 @@
 package adminApi.com.scheduler.models
 
-import adminApi.com.database.services.UpdateScheduleEntity
+import adminApi.com.common.dataflow.DataDispatcherMarker
+import adminApi.com.database.services.SchedulerTaskEntity
 import adminApi.com.general.classes.ExecutionResults
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.datetime.*
 
-class ScheduleRecord(val entity: UpdateScheduleEntity) {
-
+data class SchedulerTask (
+    val entity: SchedulerTaskEntity
+){
     val id: Int = entity.id.value
     val supplierId = entity.supplierId
-    val containerName = entity.containerName.lowercase()
-    val updateFrequency = entity.updateFrequency
-    var lastUpdate :LocalDateTime?
-        get() = entity.lastUpdate
-        set(value) { entity.lastUpdate = value }
+    val task = entity.task
+    val frequency = entity.frequency
+    var lastUpdateAt :LocalDateTime?
+        get() = entity.lastUpdateAt
+        set(value) { entity.lastUpdateAt = value }
 
     var onUpdate: ((Int,String) -> Unit)? = null
 
@@ -36,16 +38,14 @@ class ScheduleRecord(val entity: UpdateScheduleEntity) {
             .toLocalDateTime(timeZone)
     }
 
-
     fun check(){
-        if(lastUpdate == null){
-            this.onUpdate?.invoke(supplierId,containerName)
-        }else{
-            val nextUpdateAt = lastUpdate!!.plus(updateFrequency.toLong(), DateTimeUnit.MINUTE)
-            if(nextUpdateAt > LocalDateTime.now()){
-                this.onUpdate?.invoke(supplierId,containerName)
-            }
-        }
+//        if(lastUpdate == null){
+//            this.onUpdate?.invoke(supplierId, containerName)
+//        }else{
+//            val nextUpdateAt = lastUpdate!!.plus(updateFrequency.toLong(), DateTimeUnit.MINUTE)
+//            if(nextUpdateAt > LocalDateTime.now()){
+//                this.onUpdate?.invoke(supplierId,containerName)
+//            }
+//        }
     }
-
 }

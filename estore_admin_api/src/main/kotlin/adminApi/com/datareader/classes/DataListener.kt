@@ -11,7 +11,7 @@ class ProviderDataListener( val providerManager : ProviderManager, val listenerS
         listenerScope.launch(Dispatchers.Default) {
             DataManager.producerSubject.collect { message ->
                 if(message!=null){
-                    val provider =  providerManager.getProvider(message.supplierId)
+                    val provider =  providerManager.getDataProvider(message.supplierId)
                     if (provider!=null){
                         provider.producers.supplyData(message.items)
                     }else{
@@ -23,7 +23,7 @@ class ProviderDataListener( val providerManager : ProviderManager, val listenerS
         listenerScope.launch(Dispatchers.Default) {
             DataManager.categorySubject.collect { message ->
                 if(message!=null){
-                    val provider =  providerManager.getProvider(message.supplierId)
+                    val provider =  providerManager.getDataProvider(message.supplierId)
                     if (provider!=null){
                         provider.categories.supplyData(message.items)
                     }else{
@@ -35,7 +35,7 @@ class ProviderDataListener( val providerManager : ProviderManager, val listenerS
         listenerScope.launch(Dispatchers.Default) {
             DataManager.productSubject.collect { message ->
                 if (message != null) {
-                    val provider = providerManager.getProvider(message.supplierId)
+                    val provider = providerManager.getDataProvider(message.supplierId)
                     if (provider != null) {
                        val result = provider.products.supplyData(message.items)
                     } else {
