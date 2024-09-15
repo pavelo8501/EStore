@@ -1,4 +1,3 @@
-gradle/
 build/
 .kotlin/
 .idea/
@@ -11,3 +10,6 @@ action_credentials.txt
 response.txt
 quodana.sarif.json
 quodana.yaml
+
+.env
+.dockerignore
