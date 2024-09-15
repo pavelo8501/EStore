@@ -1,6 +1,6 @@
 package adminApi.com.scheduler.models
 
-import adminApi.com.common.dataflow.DataDispatcherMarker
+import adminApi.com.common.statistics.DataFlowContainer
 import adminApi.com.database.services.SchedulerTaskEntity
 import adminApi.com.general.classes.ExecutionResults
 import kotlinx.coroutines.flow.SharedFlow
@@ -19,7 +19,7 @@ data class SchedulerTask (
 
     var onUpdate: ((Int,String) -> Unit)? = null
 
-    var launchFn: (() -> SharedFlow<ExecutionResults>)? = null
+    var launchFn: (() -> SharedFlow<DataFlowContainer>)? = null
 
     fun LocalDateTime.Companion.now(): LocalDateTime {
         return Clock.System.now().toLocalDateTime(TimeZone.UTC)

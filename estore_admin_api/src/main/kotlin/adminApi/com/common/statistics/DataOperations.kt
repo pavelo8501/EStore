@@ -1,24 +1,20 @@
 package adminApi.com.common.statistics
 
-import adminApi.com.common.dataflow.DataDispatcherMarker
-import adminApi.com.common.dataflow.DataDispatcherRecord
-import kotlinx.datetime.Clock
-import kotlinx.datetime.LocalDateTime
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 
 
 enum class ModuleName{
     GENERAL,
     DATAREADER,
     DATABASE,
+    SCHEDULER
 }
 
 enum class FlowType {
     RECEIVE,
     SEND,
     UPDATE,
-    DELETE
+    DELETE,
+    BUFFERED,
 }
 
 enum class DataCategory {
@@ -40,15 +36,15 @@ enum class DataSetType {
 }
 
 interface CallResult {
-    val success: Boolean
-    val count: Int
+    var success: Boolean
+    var count: Int
 }
 
-data class CallResultImpl(
+data class CallResultData(
     val dataList: List<*>
 ) : CallResult {
-    override val success: Boolean = true
-    override val count: Int
+    override var success: Boolean = true
+    override var count: Int = 0
         get() = dataList.size
 }
 
@@ -56,34 +52,45 @@ interface ServiceCallResult : CallResult {
     val dataType: DataType
     val errorCode: Int?
     val errorMessage: String?
-    val dataContainer: DataFlowContainer
+    val dataContainer: FlowDataContext
+
+    fun getCallResult(): CallResult{
+        return this
+    }
 }
 
-interface IMeasurableCallResult : CallResult {
+interface MeasurableCallResult : CallResult {
     val module: ModuleName
     val supplierName: String
-    val unitName: DataCategory
-    val operation: String
+    val dataCategory: DataCategory
+    val methodName: String
     val flowType: FlowType
     var elapsedTime: Long
+
+    fun getCallResult(): CallResult{
+        return this
+    }
 }
 
 
-class MeasurableCallResult(
-    override val operation: String,
-    override val flowType: FlowType,
+class Measurement( ) : MeasurableCallResult {
 
-    ) : IMeasurableCallResult {
-
-    override val success: Boolean = false
-    override val module: ModuleName = ModuleName.DATAREADER
-    override val supplierName: String = ""
-    override val unitName: DataCategory = DataCategory.PRODUCER
+    override var methodName: String = ""
+    override var flowType: FlowType = FlowType.RECEIVE
+    override var success: Boolean = false
+    override var module: ModuleName = ModuleName.DATAREADER
+    override var supplierName: String = ""
+    override var dataCategory: DataCategory = DataCategory.PRODUCER
 
     override var count: Int = 0
     override var elapsedTime: Long = 0
 
     private var startTime: Long = 0
+
+    fun importData(data: CallResult){
+        this.count = data.count
+        this.success = data.success
+    }
 
     fun start() {
         this.startTime = System.currentTimeMillis()
@@ -94,44 +101,87 @@ class MeasurableCallResult(
     }
 
     override fun toString(): String {
-        return "Module: $module, Unit: $unitName, Operation: $operation, FlowType: $flowType, Count: $count, ElapsedTime: $elapsedTime"
+        return "Module: $module, DataCategory: $dataCategory, Operation: $methodName, FlowType: $flowType, Count: $count, ElapsedTime: $elapsedTime"
     }
 }
 
-interface DataFlowContainer {
+
+interface FlowPoint {
+    val module: ModuleName
+    val supplierName: String?
+    val dataCategory: DataCategory?
+    val targetMethodName: String?
+}
+
+data class RouteHop(
+    override val module: ModuleName,
+    override val supplierName: String? =null,
+    override val dataCategory: DataCategory? = null,
+    override val targetMethodName: String?=null,
+) : FlowPoint{
+    val measurementLog: MutableList<MeasurableCallResult> = mutableListOf()
+}
+
+interface FlowDataContext {
     val dataList: List<*>
     val dataSetType: DataSetType
     val dataType: DataType
-    val routesLog: List<DataDispatcherRecord>
-    val measurementLog: List<IMeasurableCallResult>
+    val routes: List<RouteHop>
 }
 
-class DataFlowContainerImpl(
-) : DataFlowContainer {
+class DataFlowContainer(
+) : FlowDataContext {
     override var dataList: List<*> = listOf<Any>()
     override var dataType: DataType = DataType.JSON
     override var dataSetType: DataSetType = DataSetType.COMPLETE
-    override val routesLog: MutableList<DataDispatcherRecord> = mutableListOf()
-    override val measurementLog: MutableList<IMeasurableCallResult> = mutableListOf()
+    override val routes: MutableList<RouteHop> = mutableListOf()
 
-    fun init(container: DataFlowContainer) {
+    fun init(container: FlowDataContext) {
         this.dataList = container.dataList
         this.dataSetType = container.dataSetType
         this.dataType = container.dataType
     }
 
-    fun updateData(dataList: List<*>, dataSetType: DataSetType, dataType: DataType) {
+    fun <T>updateData(dataList: List<T>, dataSetType: DataSetType, dataType: DataType) {
         this.dataList = dataList
         this.dataSetType = dataSetType
         this.dataType = dataType
+        lastHop()?.measurementLog?.lastOrNull()?.also {
+            it.count = dataList.size
+            it.success = true
+        }
     }
 
-    fun addRouteInformation(route: DataDispatcherRecord) {
-        this.routesLog.add(route)
+    fun importData(container: DataFlowContainer){
+        this.dataList= container.dataList
+        this.dataSetType = container.dataSetType
+        this.dataType = container.dataType
+        lastHop()?.measurementLog?.lastOrNull()?.also {
+            it.count = dataList.size
+            it.success = true
+        }
     }
 
-    fun addMeasurement(measurement: IMeasurableCallResult) {
-        this.measurementLog.add(measurement)
+
+    fun addRouteInformation(route: RouteHop) {
+        this.routes.add(route)
+
+    }
+
+    fun addMeasurement(measurement: MeasurableCallResult) {
+        lastHop()?.measurementLog?.add(measurement)
+    }
+
+    fun lastHop(): RouteHop? {
+        return routes.lastOrNull()
+    }
+
+    fun lastKnownTargetMethod(): String{
+        val result = routes.lastOrNull()?.targetMethodName
+        if(result == null){
+            return "Unknown"
+        }
+        return result
     }
 
 }

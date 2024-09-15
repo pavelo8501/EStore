@@ -1,6 +1,8 @@
 package adminApi.com.scheduler
 
-import adminApi.com.common.dataflow.DataDispatcherMarker
+import adminApi.com.common.dataflow.DataDispatcher
+import adminApi.com.common.statistics.DataFlowContainer
+import adminApi.com.common.statistics.ModuleName
 import adminApi.com.database.DBManager
 import adminApi.com.datareader.data.ProviderManager
 import adminApi.com.general.classes.ExecutionResults
@@ -32,7 +34,7 @@ class Scheduler(private val db:DBManager) {
         return Clock.System.now().toLocalDateTime(TimeZone.UTC)
     }
 
-    fun registerLaunchFn(supplierId: Int, taskName:String, fn : (Int, DataDispatcherMarker)-> SharedFlow<ExecutionResults>) {
+    fun registerLaunchFn(supplierId: Int, taskName:String, fn : (Int, DataFlowContainer?)-> SharedFlow<DataFlowContainer>) {
        launchRecords.add(LaunchRecord(supplierId, taskName.lowercase(), fn))
     }
 
@@ -40,10 +42,9 @@ class Scheduler(private val db:DBManager) {
 
         when(containerName){
             "products" -> {
-
                 launchRecords.find { it.containerName == "producers" }?.let {
-                    it.fn.invoke(supplierId, DataDispatcherMarker("Scheduler","Container",0)).onCompletion {
-                        val a = it
+                    it.fn.invoke(supplierId, DataDispatcher.createDispatchContainer(ModuleName.SCHEDULER,"updateProducers")).collect{
+                        val result = it
                     }
                 }
 

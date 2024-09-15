@@ -1,5 +1,7 @@
 package adminApi.com.datareader.data.containers
 
+import adminApi.com.common.statistics.DataCategory
+import adminApi.com.common.statistics.DataType
 import adminApi.com.datareader.models.CategoryDataModel
 import adminApi.com.datareader.models.ProducerDataModel
 import adminApi.com.datareader.models.auxiliary.JsonPropertyConverter
@@ -12,7 +14,7 @@ import kotlinx.serialization.json.JsonElement
 
 class CategoryContainer(mappings: HashMap<String,String>, override var supplierId :Int ):DataContainer<CategoryDataModel>() {
 
-    override var containerType = ContainerType.CATEGORY
+    override var dataCategory = DataCategory.CATEGORY
 
     override fun createDataItem(source:JsonElement, mapping: HashMap<String,String>? ) : CategoryDataModel {
         return CategoryDataModel(source).also {

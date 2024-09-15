@@ -4,18 +4,18 @@ import adminApi.com.common.statistics.*
 import adminApi.com.datareader.data.DataProvider
 import kotlin.reflect.KClass
 
-data class MeasurableCallResultImpl(
-
-    override val module: ModuleName,
-    override val supplierName: String,
-) : IMeasurableCallResult {
-    override val unitName: DataCategory = DataCategory.PRODUCER
-    override val operation = ""
-    override val flowType: FlowType = FlowType.RECEIVE
-    override val success: Boolean = false
-    override var count: Int = 0
-    override var elapsedTime: Long = 0
-}
+//data class MeasurableCallResultImpl(
+//
+//    override val module: ModuleName,
+//    override val supplierName: String,
+//) : MeasurableCallResult {
+//    override val unitName: DataCategory = DataCategory.PRODUCER
+//    override val operation = ""
+//    override val flowType: FlowType = FlowType.RECEIVE
+//    override val success: Boolean = false
+//    override var count: Int = 0
+//    override var elapsedTime: Long = 0
+//}
 
 interface DataFlowMeter {
     abstract fun initCompanion()
@@ -23,32 +23,36 @@ interface DataFlowMeter {
 
 interface DataFlowMeterCompanion {
     var parent : Any?
-    var objectName: String
+    var unitName: String
     var module: ModuleName
     var supplierName: String
-    val measurements: MutableList<IMeasurableCallResult>
-    val onDispatcherResultsSubmitted: ((ServiceCallResult) -> Unit)?
-    val onMeterResultsSubmitted: ((MeasurableCallResult) -> Unit)?
+    val measurements: MutableList<Measurement>
+    val onDispatcherResultsSubmitted: ((FlowPoint) -> Unit)?
+    val onMeterResultsSubmitted: ((Measurement) -> Unit)?
 
     fun init(name: String, module: ModuleName, supplierName: String, parent: Any) {
-        this.objectName = name
+        this.unitName = name
         this.module = module
         this.supplierName = supplierName
         this.parent = parent
     }
 
-    abstract fun registerMeasurement(serviceCallResult: ServiceCallResult)
-    abstract fun registerMeasurement(operation: String, elapsedTime: Long)
+    fun registerMeasurement(data : FlowPoint)
+    fun updateMeasurement(measurement: Measurement)
 }
 
 interface DataFlowMeasurable {
     suspend  fun <T> startMeasureSuspended(
-        operationName: String,
+        methodName: String,
         flowType: FlowType,
-        onResult: ((MeasurableCallResult) -> Unit)?,
+        onResult: ((Measurement) -> Unit)?,
         block: suspend () -> T
     ): T {
-        val measurement = MeasurableCallResult(operationName, flowType)
+        val measurement = Measurement()
+        measurement.also {
+            it.flowType = flowType
+            it.methodName = methodName
+        }
         measurement.start()
         val result = block.invoke()
         measurement.stop()
@@ -57,18 +61,21 @@ interface DataFlowMeasurable {
     }
 
     fun <T> startMeasure(
-    operationName: String,
+    methodName: String,
     flowType: FlowType,
-    onResult: ((MeasurableCallResult) -> Unit)?,
-    block:  (T) -> Unit
+    onResult: ((Measurement) -> Unit)?,
+    block: () -> T
     ): T {
-        val measurement = MeasurableCallResult(operationName, flowType)
+        val measurement = Measurement()
+        measurement.also {
+            it.flowType = flowType
+            it.methodName = methodName
+        }
         measurement.start()
-        block(this as T)
-       // (this as T).block()
+        val result = block.invoke()
         measurement.stop()
         onResult?.invoke(measurement)
-        return (this as T)
+        return result
     }
 }
 

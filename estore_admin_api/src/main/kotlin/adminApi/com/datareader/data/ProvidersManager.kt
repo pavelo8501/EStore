@@ -1,6 +1,8 @@
 package adminApi.com.datareader.data
 
-import adminApi.com.common.dataflow.DataDispatcherMarker
+import adminApi.com.common.dataflow.DataDispatcher
+import adminApi.com.common.statistics.DataFlowContainer
+import adminApi.com.common.statistics.ModuleName
 import adminApi.com.datareader.classes.ProviderDataListener
 import adminApi.com.datareader.connectors.ActionConnector
 import adminApi.com.datareader.connectors.Connector
@@ -127,34 +129,34 @@ class ProviderManager() {
        return this.dataProviders.entries.firstOrNull{it.value.supplierId == id}?.value
     }
 
-    private var categoriesSubject =  MutableSharedFlow<ExecutionResults>()
-    fun updateCategories(providerId: Int, marker : DataDispatcherMarker? = null): SharedFlow<ExecutionResults>{
+    private var categoriesSubject =  MutableSharedFlow<DataFlowContainer>()
+    fun updateCategories(providerId: Int, container : DataFlowContainer? = null): SharedFlow<DataFlowContainer>{
         getDataProvider(providerId)?.let {
             providerManagerScope.launch {
-                it.updateCategories(marker?:DataDispatcherMarker("Temp","Container",0))
-                categoriesSubject.emit(ExecutionResults(it.supplierId,"products"))
+                val resultingDataFlowContainer = it.updateCategories(container?:DataDispatcher.createDispatchContainer(ModuleName.DATAREADER,"updateCategories"))
+                categoriesSubject.emit(resultingDataFlowContainer)
             }
         }
         return categoriesSubject
     }
 
-    private var producersSubject =  MutableSharedFlow<ExecutionResults>()
-    fun updateProducers(supplierId: Int, marker : DataDispatcherMarker? = null): SharedFlow<ExecutionResults> {
+    private var producersSubject =  MutableSharedFlow<DataFlowContainer>()
+    fun updateProducers(supplierId: Int, container : DataFlowContainer? = null): SharedFlow<DataFlowContainer> {
         getDataProvider(supplierId)?.let {
             providerManagerScope.launch {
-                it.updateProducers(marker?:DataDispatcherMarker("Temp","Container",0))
-                producersSubject.emit(ExecutionResults(it.supplierId,"producers"))
+               val resultingDataFlowContainer = it.updateProducers(container?:DataDispatcher.createDispatchContainer(ModuleName.DATAREADER,"updateProducers"))
+                producersSubject.emit(resultingDataFlowContainer)
             }
         }
         return producersSubject
     }
 
-    private var productsSubject =  MutableSharedFlow<ExecutionResults>()
-    fun updateProducts(supplierId: Int, marker : DataDispatcherMarker? = null) : SharedFlow<ExecutionResults> {
+    private var productsSubject =  MutableSharedFlow<DataFlowContainer>()
+    fun updateProducts(supplierId: Int, container : DataFlowContainer? = null) : SharedFlow<DataFlowContainer> {
         getDataProvider(supplierId)?.let {
             providerManagerScope.launch {
-                it.updateProducts(marker?:DataDispatcherMarker("Temp","Container",0))
-                productsSubject.emit(ExecutionResults(it.supplierId,"products"))
+                val resultingDataFlowContainer =  it.updateProducts(container?: DataDispatcher.createDispatchContainer(ModuleName.DATAREADER,"updateProducts"))
+                productsSubject.emit(resultingDataFlowContainer)
             }
         }
         return productsSubject

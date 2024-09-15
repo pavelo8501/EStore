@@ -15,7 +15,7 @@ class DataServiceCallResult(
     override var errorCode: Int? = null
     override var errorMessage: String? = null
     override var count: Int = 0
-    override val dataContainer = DataFlowContainerImpl()
+    override val dataContainer = DataFlowContainer()
 
 
     fun setResult(dataList: List<JsonElement>, dataSetType:DataSetType) {

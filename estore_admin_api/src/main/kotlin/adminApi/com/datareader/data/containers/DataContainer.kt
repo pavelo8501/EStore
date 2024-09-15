@@ -13,48 +13,50 @@ import kotlinx.serialization.json.encodeToJsonElement
 import kotlin.coroutines.CoroutineContext
 import kotlin.math.E
 
-
-enum class ContainerType{
-    PRODUCER,
-    PRODUCT,
-    CATEGORY
-}
-
-
 abstract class DataContainer<T:DataModelClass>(): DataFlowMeter {
 
     companion object MeterCompanion : DataFlowMeterCompanion {
         override var parent: Any? = null
-        override var objectName: String = "Object Name"
+        override var unitName: String = "DataContainer"
         override var module: ModuleName = ModuleName.DATAREADER
         override var supplierName: String = ""
-        override val measurements: MutableList<IMeasurableCallResult> = mutableListOf()
+        override val measurements: MutableList<Measurement> = mutableListOf()
 
-        override val onDispatcherResultsSubmitted = { result: ServiceCallResult -> this.registerMeasurement(result) }
-        override val onMeterResultsSubmitted: ((MeasurableCallResult) -> Unit)? =
-            { result: MeasurableCallResult -> this.registerMeasurement(result.operation, result.elapsedTime) }
+        override val onDispatcherResultsSubmitted: ((FlowPoint)-> Unit) = {
+           this.registerMeasurement(it)
+        }
+        override val onMeterResultsSubmitted: ((Measurement) -> Unit)? = {
+                this.updateMeasurement(it)
+        }
 
-        override fun registerMeasurement(serviceCallResult: ServiceCallResult) {
-            if (serviceCallResult.success) {
-                val newRecord = MeasurableCallResultImpl(module, objectName)
-                newRecord.count = serviceCallResult.count
-                this.measurements.add(newRecord)
+        override fun updateMeasurement(measurement: Measurement) {
+            this.measurements.firstOrNull { it.methodName == measurement.methodName }?.also {
+                it.elapsedTime = measurement.elapsedTime
+                it.flowType = measurement.flowType
+                it.success = measurement.success
             }
         }
 
-        override fun registerMeasurement(operation: String, elapsedTime: Long) {
-            this.measurements.firstOrNull { it.operation == operation }?.elapsedTime = elapsedTime
+        override fun registerMeasurement(data : FlowPoint) {
+            val measurement = Measurement()
+            measurement.also {
+                it.module = data.module
+                it.supplierName = data.supplierName?:""
+                it.methodName = data.targetMethodName?: ""
+            }
+            this.measurements.add(measurement)
         }
 
-        fun getLastMeasurement(category: DataCategory): IMeasurableCallResult? {
-            val first = measurements.firstOrNull{it.unitName == category}
-            return first
+        fun getLastMeasurement(): MeasurableCallResult? {
+            val last = DataProvider.MeterCompanion.measurements.last()
+            return last
         }
     }
-    private val dataDispatcher: DataDispatcherImpl = DataDispatcherImpl()
+
+    private val dataDispatcher: DataDispatcher = DataDispatcher()
 
     abstract var supplierId:Int
-    abstract var containerType : ContainerType
+    abstract var dataCategory : DataCategory
     private var busy = false
         set(value) {
             if(field != value) {
@@ -72,13 +74,20 @@ abstract class DataContainer<T:DataModelClass>(): DataFlowMeter {
     var onDataForUpdated: ((List<T>)->Unit)? = null
     var onDataForRemoval : ((List<T>)->Unit)? = null
 
+    init {
+        initCompanion()
+    }
+
     abstract fun createDataItem(source:JsonElement, mapping: HashMap<String,String>? = null) : T
     abstract suspend fun supplyData(dataItems : List<ICommonData>):Boolean
 
-    var companion: DataFlowMeterCompanion = DataContainer.MeterCompanion
+    var companion: MeterCompanion? = null
     override fun initCompanion() {
-        companion.init("DataProvider", ModuleName.DATAREADER, "Action", this)
-        dataDispatcher.init(DataProvider.MeterCompanion.onDispatcherResultsSubmitted)
+        companion = MeterCompanion
+        if(companion != null){
+            companion!!.init("DataContainer", ModuleName.DATAREADER, "action", this)
+            dataDispatcher.subscribeToCallResults(onDispatcherResultsSubmitted)
+        }
     }
 
     private fun sendRedundantForRemoval(){
@@ -131,12 +140,10 @@ abstract class DataContainer<T:DataModelClass>(): DataFlowMeter {
     }
 
     private fun addRecord(record: T) {
-
         if(this.initialUpdate){
             this.records.add(record)
             return
         }
-
         val index = this.records.indexOfFirst { it.providerId == record.providerId }
         if (index < 0) {
             this.records.add(record)
@@ -159,23 +166,27 @@ abstract class DataContainer<T:DataModelClass>(): DataFlowMeter {
         }
     }
 
-    suspend fun setDataFromSource(dataContainer: DataFlowContainerImpl) = dataDispatcher.receiveData<T>(dataContainer, this.busy, {
+    suspend fun setDataFromSource(container: DataFlowContainer) = dataDispatcher.receiveData<T>(
+        container,
+        RouteHop(ModuleName.DATAREADER,supplierName, dataCategory,"setDataFromSource"),
+        this.busy,
+        {
         it.onBuffered ={
-            println("Buffered")
+
         }
 
-        it.onRelease = { data-> {
+        it.onRelease = {
             beforeUpdate()
-            data.forEach {
-                addRecord(it as T)
-            }
+            it.dataList.forEach{ addRecord(it as T) }
             afterUpdate()
-        }}
-        }){
-              startMeasure<List<T>>("setDataFromSource",FlowType.UPDATE,MeterCompanion.onMeterResultsSubmitted){
-                    val jasonList: List<JsonElement> = dataContainer.dataList.filterIsInstance<JsonElement>()
-                    val itemList = jasonList.map { createDataItem(it, mapping) }
-                }
+        }
+        }) {
+            val dataItems = startMeasure<List<T>>(container.lastKnownTargetMethod() , FlowType.UPDATE, onMeterResultsSubmitted) {
+                val jsonList: List<JsonElement> = container.dataList.filterIsInstance<JsonElement>()
+                jsonList.map { createDataItem(it, mapping) }
+            }
+
+            setUpdateResult<T>(dataItems,getLastMeasurement())
         }
 
     suspend fun setData(data : List<T>, fromDataManager : Boolean = true ):Boolean{

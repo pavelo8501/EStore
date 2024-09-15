@@ -10,150 +10,193 @@ import org.koin.core.definition.Callbacks
 import javax.security.auth.callback.Callback
 
 
-interface DataDispatcherRecord {
-    val sender: String
-    val recipient: String
-    val count: Int
+
+
+//interface DataDispatcher {
+//    val dataBuffer: MutableList<DataBufferContainer>
+//    var onResultsSubmit : ((ServiceCallResult) -> Unit)?
+//    var onDataReceived: (DispatcherHopData) -> Unit
+//    var onDataBeforeDispatch: (() -> Unit)?
+//    var onException: ((Exception) -> Unit)?
+//    var onDataAfterDispatch: ((CallResult) -> Unit)?
+//    var onDataDispatchComplete: (() -> Unit)?
+//    var onBuffered: (()->Unit)?
+//    //var onRelease: (()->List<ICommonData>)?
+//
+//    abstract fun init(onSubmitResult: ((ServiceCallResult) -> Unit)?)
+//    fun <T>addToBuffer(dataItems: List<T>,container : DataFlowContainer)
+////    abstract suspend fun <T>receiveData(
+////        dataContainer: DataFlowContainerImpl,
+////        busy: Boolean,
+////        body: (DataDispatcherImpl.() -> Unit)?,
+////        receiver: DataDispatcherImpl.() -> List<T>
+////    )
+//    abstract suspend fun getData(
+//        dataCategory: DataCategory,
+//        body: ((DataDispatcherImpl) -> Unit)? = null,
+//        receiver: suspend DataDispatcherImpl.() -> Unit
+//    ): DataDispatcher
+//    abstract fun processTransferResult(callResult: DataServiceCallResult): ServiceCallResult
+//}
+
+interface BufferRecordContext {
+    var measurement: Measurement
+
+    fun extractContainer(): DataFlowContainer
 }
 
-interface DataBufferContainer {
-    val timeStart:Long
-    val dataContainer :DataFlowContainer
+data class BufferItem(
+    private val dataContainer: DataFlowContainer
+):BufferRecordContext{
+
+    override var measurement: Measurement = Measurement()
+    init {
+        measurement.count = dataContainer.dataList.size
+        measurement.flowType = FlowType.BUFFERED
+        measurement.methodName = dataContainer.lastKnownTargetMethod()
+        measurement.supplierName = dataContainer.lastHop()?.supplierName?:""
+        measurement.dataCategory = dataContainer.lastHop()?.dataCategory?: DataCategory.PRODUCER
+    }
+
+    override fun extractContainer(): DataFlowContainer {
+        measurement.stop()
+        dataContainer.addMeasurement(measurement)
+        return dataContainer
+    }
 }
 
-interface DataDispatcher {
-    val dataBuffer: MutableList<DataBufferContainer>
-    var onResultsSubmit : ((ServiceCallResult) -> Unit)?
-    var onDataReceived: (DataDispatcherRecord) -> Unit
-    var onDataBeforeDispatch: (() -> Unit)?
-    var onException: ((Exception) -> Unit)?
-    var onDataAfterDispatch: ((CallResult) -> Unit)?
-    var onDataDispatchComplete: (() -> Unit)?
-    var onBuffered: (()->Unit)?
-    //var onRelease: (()->List<ICommonData>)?
+class DataDispatcher() :  DataFlowMeasurable {
+ companion object DataDispatcherCompanion{
+     fun createDispatchContainer(sender: ModuleName, targetMethodName: String):DataFlowContainer{
+         val dataFlowContainer =  DataFlowContainer()
+         dataFlowContainer.addRouteInformation(RouteHop(sender,targetMethodName))
+         return dataFlowContainer
+     }
+ }
 
-    abstract fun init(onSubmitResult: ((ServiceCallResult) -> Unit)?)
-    fun <T>addToBuffer(dataItems: List<T>,container : DataFlowContainerImpl)
-//    abstract suspend fun <T>receiveData(
-//        dataContainer: DataFlowContainerImpl,
-//        busy: Boolean,
-//        body: (DataDispatcherImpl.() -> Unit)?,
-//        receiver: DataDispatcherImpl.() -> List<T>
-//    )
-    abstract suspend fun getData(
-        dataCategory: DataCategory,
-        body: ((DataDispatcherImpl) -> Unit)? = null,
-        receiver: suspend DataDispatcherImpl.() -> Unit
-    ): DataDispatcher
-    abstract fun processTransferResult(callResult: DataServiceCallResult): ServiceCallResult
-}
 
-data class DataBufferContainerImpl(
-    override val timeStart: Long,
-    override val dataContainer: DataFlowContainer,
-):DataBufferContainer{}
-
-data class DataDispatcherMarker(
-    override val sender: String,
-    override val recipient: String,
-    override val count: Int
-) : DataDispatcherRecord
-
-class DataDispatcherImpl() : DataDispatcher, DataFlowMeasurable {
-    override val dataBuffer: MutableList<DataBufferContainer> = mutableListOf()
+    val dataBuffer: MutableList<BufferItem> = mutableListOf()
     var recipientBusy: Boolean = false
-    override var onResultsSubmit: ((ServiceCallResult) -> Unit)? = null
-    override var onDataReceived: (DataDispatcherRecord) -> Unit = {}
-    override var onDataBeforeDispatch: (() -> Unit)? = null
-    override var onDataAfterDispatch: ((CallResult) -> Unit)? = null
-    override var onDataDispatchComplete: (() -> Unit)? = null
-    override var onException: ((Exception) -> Unit)? = null
-    override var onBuffered: (() -> Unit)? = null
+        set(value) {
+            if (field != value) {
+                field = value
+            }
+        }
 
-    var onRelease: ((List<ICommonData>)->Unit)? = null
+    var currentContainer: DataFlowContainer? = null
 
-    override fun init(onSubmitResult: ((ServiceCallResult) -> Unit)?) {
-        onResultsSubmit = onSubmitResult
+
+    var onResultsSubmit: ((MeasurableCallResult) -> Unit)? = null
+    var onBeforeDispatch: ((FlowPoint) -> Unit)? = null
+    var onDataAfterDispatch: ((CallResult) -> Unit)? = null
+    var onDataDispatchComplete: (() -> Unit)? = null
+    var onException: ((Exception) -> Unit)? = null
+    var onBuffered: (() -> Unit)? = null
+
+    var onRelease: ((DataFlowContainer)->Unit)? = null
+
+    fun subscribeToCallResults(fn: ((FlowPoint) -> Unit)){
+        onBeforeDispatch = fn
     }
 
     fun releaseFromBuffer(){
         if(dataBuffer.isNotEmpty()){
             val dataBufferItem = dataBuffer.removeAt(dataBuffer.size - 1)
-            val list = dataBufferItem.dataContainer.dataList as List<ICommonData>
-            onRelease?.invoke(list)
+            val container = dataBufferItem.extractContainer()
+            onRelease?.invoke(container)
         }
     }
 
-    fun setRecipientBusyStatus(busy: Boolean) {
-        if(recipientBusy && !busy){
+    fun setRecipientBusyStatus(value: Boolean) {
+        recipientBusy = value
+        if(!value){
             releaseFromBuffer()
         }
     }
 
-    override fun <T> addToBuffer(dataItems: List<T>, container: DataFlowContainerImpl) {
-        container.updateData(dataItems,DataSetType.COMPLETE,DataType.DATARECORD)
-        val bufferItem = DataBufferContainerImpl(System.currentTimeMillis(), container)
+    fun <T> addToBuffer(container: DataFlowContainer) {
+       // container.updateData<T>(dataItems,DataSetType.COMPLETE,DataType.DATARECORD)
+        val bufferItem = BufferItem(container)
         dataBuffer.add(bufferItem)
+        onBuffered?.invoke()
     }
 
-    suspend fun <T> receiveData(
-        dataContainer: DataFlowContainerImpl,
+    suspend fun <T>receiveData(
+        container: DataFlowContainer,
+        routeHop : RouteHop,
         busy: Boolean,
-        body: ((DataDispatcherImpl) -> Unit)?,
-        receiver: DataDispatcherImpl.() -> List<T>
-    ) {
-        this.recipientBusy = busy
-        val itemList = receiver(this)
-        if (busy) {
-            addToBuffer(itemList,dataContainer)
-            if (body != null) {
-                onBuffered?.invoke()
-            }
-        } else {
-            if (body != null) {
-                onRelease?.invoke(itemList as List<ICommonData>)
-            }
+        body: ((DataDispatcher) -> Unit)?,
+        receiver: DataDispatcher.() -> Unit
+    ){
+        currentContainer = container
+        currentContainer!!.addRouteInformation(routeHop)
+        body?.invoke(this)
+        onBeforeDispatch?.invoke(routeHop)
+        try {
+            this.recipientBusy = busy
+            receiver.invoke(this)
+        }catch (e: Exception){
+            onException?.invoke(e)
         }
     }
 
-    override suspend fun getData(
-        dataCategory: DataCategory,
-        body: (DataDispatcherImpl.() -> Unit)?,
-        receiver: suspend DataDispatcherImpl.() -> Unit
-    ): DataDispatcher {
-        if (body != null) {
-            this.body()
-        }
+    suspend fun getData(
+        container: DataFlowContainer,
+        routeHop : RouteHop,
+        destinationPeer:  ( suspend (DataFlowContainer) -> Unit)? = null,
+        receiver: suspend DataDispatcher.() -> Unit
+    ) : DataFlowContainer {
+        currentContainer = container
+        currentContainer!!.addRouteInformation(routeHop)
+        onBeforeDispatch?.invoke(routeHop)
         try{
-            onDataBeforeDispatch?.invoke()
-            onDataDispatchComplete?.invoke()
-            val bodyResult = this.receiver()
-            if (onDataAfterDispatch != null) {
-                val result = CallResultImpl(listOf(bodyResult))
-                onDataAfterDispatch!!.invoke(result)
-            }
-            onDataDispatchComplete?.invoke()
+            receiver.invoke(this)
         } catch (e: Exception) {
             onException?.invoke(e)
         }
-        return this
+
+        if(currentContainer!= null){
+            destinationPeer?.invoke(currentContainer!!)
+            onDataDispatchComplete?.invoke()
+        }
+        return currentContainer!!
     }
 
-    override fun processTransferResult(callResult: DataServiceCallResult): ServiceCallResult {
-        val result: ServiceCallResult = callResult
-        if (onResultsSubmit != null){
-            onResultsSubmit?.invoke(result)
+    fun <T>setUpdateResult(data: List<T>, measurement: MeasurableCallResult? = null){
+        if(currentContainer!= null){
+            if(measurement != null){
+                currentContainer!!.addMeasurement(measurement)
+            }
+            currentContainer!!.updateData(data, DataSetType.COMPLETE, DataType.DATARECORD)
         }
-        return result
+        if(recipientBusy){
+            addToBuffer<T>(currentContainer!!)
+        }else{
+            onRelease?.invoke(currentContainer!!)
+        }
     }
 
-    fun startJourney(container: DataFlowContainerImpl,route: DataDispatcherRecord, measurement: IMeasurableCallResult?): DataFlowContainerImpl {
-        container.addRouteInformation(route)
-        if (measurement != null) {
-            container.addMeasurement(measurement)
-        } else {
-            val a = 10
+    fun setCallResult(callResult: DataServiceCallResult,measurement: MeasurableCallResult? = null): ServiceCallResult {
+        if(currentContainer!= null){
+            if(measurement != null){
+                currentContainer!!.addMeasurement(measurement)
+            }
+            currentContainer!!.importData(callResult.dataContainer)
         }
-        return container
+        return callResult
     }
+
+
+
+//    fun createContainer(container: DataFlowContainer,route: DispatcherHopData, measurement: IMeasurableCallResult?): DataFlowContainer {
+//        container.addRouteInformation(route)
+//        if (measurement != null) {
+//            container.addMeasurement(measurement)
+//        } else {
+//            val a = 10
+//        }
+//        return container
+//    }
+
+
 }
