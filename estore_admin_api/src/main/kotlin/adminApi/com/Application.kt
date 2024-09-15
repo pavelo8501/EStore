@@ -17,24 +17,6 @@ fun main() {
         .start(wait = true)
 }
 
-fun startDataReader(){
-
-}
-
-fun start() {
-
-
-//   val providerManager = ProviderManager()
-//   dataManager.loadSuppliers { suppliers ->
-//      providerManager.initProvidersFromSupplierList(suppliers)
-//   }
-//
-//   dataManager.onDataLoaded = {
-//       scheduler.start()
-//   }
-  // dataManager.init()
-}
-
 fun Application.module() {
     configureHTTP()
     configureSockets()
@@ -43,6 +25,4 @@ fun Application.module() {
     configureRouting()
     configureKoin()
     configSystem()
-   // start()
-    //test()
 }
