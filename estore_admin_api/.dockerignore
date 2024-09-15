@@ -1,0 +1,15 @@
+build/
+.kotlin/
+.idea/
+docs/*
+api_docks/*
+static_data/*
+action.txt
+response.html
+action_credentials.txt
+response.txt
+quodana.sarif.json
+quodana.yaml
+
+.env
+.dockerignore

@@ -2,9 +2,9 @@
 
 ## Overview
 
-This repository contains the Backend API for the Online Store Platform, developed in Kotlin using the Spring Boot framework. 
+This repository contains the Backend API for the Online Store Platform, developed in Kotlin using the Spring Boot framework.
 The API serves as the backbone of the platform, handling business logic, database interactions, and providing secure access to the platform's data for both the Storefront and Administration Panel.
-
+**This branch was created to implement the Docker version of the project.**
 
 ## Features
 
@@ -29,7 +29,8 @@ The API serves as the backbone of the platform, handling business logic, databas
 
 ### Prerequisites
 
-- **Java Development Kit (JDK)** - Version 11 or higher
-- **Gradle** - Build automation tool
-- **MySQL** - Database setup
-- **Docker** - For containerized deployment (optional)
+- Node.js & npm
+- PHP & Composer
+- Java (for Kotlin)
+- MySQL
+- Docker (for containerized deployment)

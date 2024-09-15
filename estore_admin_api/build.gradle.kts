@@ -16,11 +16,11 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization") version "2.0.0"
 }
 
-group = "adminApi.com"
+group = "adminApi"
 version = "0.0.1"
 
 application {
-    mainClass.set("example.com.ApplicationKt")
+    mainClass.set("po.estoreAdminApi.ApplicationKt")
 
     val isDevelopment: Boolean = project.ext.has("development")
     applicationDefaultJvmArgs = listOf("-Dio.ktor.development=$isDevelopment")
@@ -66,7 +66,5 @@ dependencies {
 
     implementation("io.insert-koin:koin-core:$koin_version")
     implementation("io.insert-koin:koin-ktor:$koin_version")
-
-
 }
 

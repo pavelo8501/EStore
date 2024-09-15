@@ -45,3 +45,6 @@ response.txt
 quodana.sarif.json
 quodana.yaml
 conf.json
+
+application.yaml
+.env

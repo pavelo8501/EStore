@@ -1,1 +1,1 @@
-rootProject.name = "com.AdminAPI"
+rootProject.name = "estore_admin_api"
